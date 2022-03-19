@@ -8,7 +8,6 @@ _*
 
 # developer tools
 *.idea
-.vscode
 cmake-build-*
 .DS_Store
 **/tags
