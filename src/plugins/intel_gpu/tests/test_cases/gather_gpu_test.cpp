@@ -13,6 +13,55 @@
 using namespace cldnn;
 using namespace ::tests;
 
+// class Gather8Fixture1 : public ::testing::Test {
+// protected:
+//     void SetUp() override {
+//         dic.resize(1*1*1*1);
+//         ind.resize(1*1*1*1);
+//         ans.resize(1*1*1*1);
+//     }
+//     // void TearDown() override {}
+//     std::vector<FLOAT16> dic;
+//     std::vector<float> ind;
+//     std::vector<FLOAT16> ans;
+//     int b0=1, f0=1, y0=1, x0=1, b1=1, f1=1, y1=1, x1=1, b2=1, f2=1, y2=1, x2=1;
+//     cldnn::gather::gather_axis axis=axis;
+//     int batch_dim=batch_dim;
+// };
+// TEST_F(Gather8Fixture1, myfixturetest0){
+//     auto& engine = get_test_engine();
+//     auto input0 = engine.allocate_memory({ data_types::f16, format::bfyx,  { b0, f0, x0, y0 } }); // Dictionary
+//     auto input1 = engine.allocate_memory({ data_types::f32, format::bfyx, { b1, f1, x1, y1 } }); // Indexes
+//     bool negative_indexes = true;
+
+//     set_values(input0, dic);
+//     set_values(input1, ind);
+
+//     topology topology;
+//     topology.add(input_layout("InputDictionary", input0->get_layout()));
+//     topology.add(input_layout("InputText", input1->get_layout()));
+//     topology.add(gather("gather", "InputDictionary", "InputText", axis, format::bfyx, tensor(b2,f2,y2,x2), batch_dim, negative_indexes));
+
+//     network network(engine, topology);
+//     network.set_input_data("InputDictionary", input0);
+//     network.set_input_data("InputText", input1);
+
+//     auto output = network.execute().at("gather").get_memory();
+//     cldnn::mem_lock<uint16_t> output_ptr(output, get_test_stream());
+    
+//     auto to_vec_size_t=[](const std::vector<int>& vec){return std::vector<size_t>(vec.begin(),vec.end());};
+//     ngraph::runtime::reference::gather<FLOAT16,float>(
+//         dic.data(),
+//         ind.data(),
+//         ans.data(),
+//         ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
+//         ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
+//         ov::Shape(),
+//         axis);
+//     for (size_t i = 0; i < ans.size(); ++i)
+//         ASSERT_EQ((float)ans[i], (float)float16_to_float32(output_ptr[i]));
+// }
+
 TEST(gather8_gpu_fp16, d323_axisY_bdim_m1) {
     //  Dictionary : 3x2x3x4x2
     //  Indexes : 3x2x3x1
@@ -138,14 +187,14 @@ TEST(gather8_gpu_fp16, d323_axisY_bdim_m1) {
         FLOAT16(141.f), FLOAT16(142.f), FLOAT16(137.f), FLOAT16(138.f), FLOAT16(139.f), FLOAT16(140.f)
     };
     auto to_vec_size_t=[](const std::vector<int>& vec){return std::vector<size_t>(vec.begin(),vec.end());};
-    ngraph::runtime::reference::gather<FLOAT16,float>(
-        ivec0.data(),
-        ivec1.data(),
-        expected_results.data(),
-        ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
-        ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
-        ov::Shape(),
-        axis);
+    // ngraph::runtime::reference::gather<FLOAT16,float>(
+    //     ivec0.data(),
+    //     ivec1.data(),
+    //     expected_results.data(),
+    //     ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
+    //     ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
+    //     ov::Shape(),
+    //     axis);
     for (size_t i = 0; i < expected_results.size(); ++i) {
         ASSERT_EQ((float)expected_results[i], (float)float16_to_float32(output_ptr[i]));
     }
