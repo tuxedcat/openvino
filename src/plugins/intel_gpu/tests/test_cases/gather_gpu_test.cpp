@@ -13,54 +13,88 @@
 using namespace cldnn;
 using namespace ::tests;
 
-// class Gather8Fixture1 : public ::testing::Test {
-// protected:
-//     void SetUp() override {
-//         dic.resize(1*1*1*1);
-//         ind.resize(1*1*1*1);
-//         ans.resize(1*1*1*1);
-//     }
-//     // void TearDown() override {}
-//     std::vector<FLOAT16> dic;
-//     std::vector<float> ind;
-//     std::vector<FLOAT16> ans;
-//     int b0=1, f0=1, y0=1, x0=1, b1=1, f1=1, y1=1, x1=1, b2=1, f2=1, y2=1, x2=1;
-//     cldnn::gather::gather_axis axis=axis;
-//     int batch_dim=batch_dim;
-// };
-// TEST_F(Gather8Fixture1, myfixturetest0){
-//     auto& engine = get_test_engine();
-//     auto input0 = engine.allocate_memory({ data_types::f16, format::bfyx,  { b0, f0, x0, y0 } }); // Dictionary
-//     auto input1 = engine.allocate_memory({ data_types::f32, format::bfyx, { b1, f1, x1, y1 } }); // Indexes
-//     bool negative_indexes = true;
+static size_t GatherAxis2DimIdx(gather::gather_axis axis, int logical_dim){
+    switch (axis) {
+        case gather::gather_axis::along_x:
+            return logical_dim - 1;
+        case gather::gather_axis::along_y:
+            return logical_dim - 2;
+        case gather::gather_axis::along_z:
+            return logical_dim - 3;
+        case gather::gather_axis::along_w:
+            return logical_dim - 4;
+        case gather::gather_axis::along_f:
+            return 1;
+        case gather::gather_axis::along_b:
+            return 0;
+        default:
+            break;
+    }
+    throw "GatherAxis2DimIdx() failed";
+}
 
-//     set_values(input0, dic);
-//     set_values(input1, ind);
+class gather8Fixture1 : public ::testing::Test {
+protected:
+    void SetUp() override {
+        auto& engine = get_test_engine();
 
-//     topology topology;
-//     topology.add(input_layout("InputDictionary", input0->get_layout()));
-//     topology.add(input_layout("InputText", input1->get_layout()));
-//     topology.add(gather("gather", "InputDictionary", "InputText", axis, format::bfyx, tensor(b2,f2,y2,x2), batch_dim, negative_indexes));
+        dat=generate_random_1d<FLOAT16>(2*3*4*1,0,99);
+        auto input0 = engine.allocate_memory({ data_types::f16, format::bfyx,  { b0, f0, x0, y0 } }); // Dictionary
 
-//     network network(engine, topology);
-//     network.set_input_data("InputDictionary", input0);
-//     network.set_input_data("InputText", input1);
+        int dimidx_of_axis = GatherAxis2DimIdx(axis,input0->get_layout().get_dims().size());
 
-//     auto output = network.execute().at("gather").get_memory();
-//     cldnn::mem_lock<uint16_t> output_ptr(output, get_test_stream());
-    
-//     auto to_vec_size_t=[](const std::vector<int>& vec){return std::vector<size_t>(vec.begin(),vec.end());};
-//     ngraph::runtime::reference::gather<FLOAT16,float>(
-//         dic.data(),
-//         ind.data(),
-//         ans.data(),
-//         ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
-//         ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
-//         ov::Shape(),
-//         axis);
-//     for (size_t i = 0; i < ans.size(); ++i)
-//         ASSERT_EQ((float)ans[i], (float)float16_to_float32(output_ptr[i]));
-// }
+        ind=generate_random_1d<float>(5*6*1*1,0,input0->get_layout().get_dim(dimidx_of_axis)-1,1);
+        auto input1 = engine.allocate_memory({ data_types::f32, format::bfyx, { b1, f1, x1, y1 } }); // Indexes
+        
+        ans=std::vector<FLOAT16>(2*3*5*6);// ans=generate_random_1d<FLOAT16>(2*3*5*6,0,99);
+
+        set_values(input0, dat);
+        set_values(input1, ind);
+
+        topology topology;
+        topology.add(input_layout("InputDictionary", input0->get_layout()));
+        topology.add(input_layout("InputText", input1->get_layout()));
+        topology.add(gather("gather", "InputDictionary", "InputText", axis, format::bfyx, tensor(b2,f2,x2,y2), batch_dim, negative_indexes));
+
+        network network(engine, topology);
+        network.set_input_data("InputDictionary", input0);
+        network.set_input_data("InputText", input1);
+
+        auto output = network.execute().at("gather").get_memory();
+        cldnn::mem_lock<uint16_t> output_ptr(output, get_test_stream());
+        
+        auto to_vec_size_t=[](const std::vector<int>& vec){return std::vector<size_t>(vec.begin(),vec.end());};
+        ngraph::runtime::reference::gather<FLOAT16,float>(
+            dat.data(),
+            ind.data(),
+            ans.data(),
+            ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
+            ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
+            ov::Shape({b2,f2,y2,x2}),
+            dimidx_of_axis,
+            batch_dim);
+        for (size_t i = 0; i < ans.size(); ++i)
+            EXPECT_EQ((float)ans[i], (float)float16_to_float32(output_ptr[i]));
+        for (size_t i = 0; i < ans.size(); ++i) {
+            std::cout<<((float)ans[i] == (float)float16_to_float32(output_ptr[i]));
+        }
+        std::cout<<std::endl;
+    }
+    // void TearDown() override {}
+    std::vector<FLOAT16> dat;
+    std::vector<float> ind;
+    std::vector<FLOAT16> ans;
+    size_t b0=2, f0=3, y0=4, x0=1;
+    size_t b1=5, f1=6, y1=1, x1=1;
+    size_t b2=2, f2=3, y2=5, x2=6;
+    cldnn::gather::gather_axis axis=cldnn::gather::gather_axis::along_y;
+    int batch_dim=0;
+    bool negative_indexes = false;
+};
+TEST_F(gather8Fixture1, myfixturetest0){}
+TEST_F(gather8Fixture1, myfixturetest1){}
+TEST_F(gather8Fixture1, myfixturetest2){}
+TEST_F(gather8Fixture1, myfixturetest3){}
 
 TEST(gather8_gpu_fp16, d323_axisY_bdim_m1) {
     //  Dictionary : 3x2x3x4x2
@@ -164,7 +198,8 @@ TEST(gather8_gpu_fp16, d323_axisY_bdim_m1) {
         ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
         ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
         ov::Shape({3, 2, 3, 1, 2}),//여기는 또 bfzyx순서로 적네;;;
-        axis,batch_dim);
+        GatherAxis2DimIdx(axis,input0->get_layout().get_dims().size()),//axis가 size_t로 캐스팅될시 bfzyx라서 우연히 맞았던거였다.
+        batch_dim);
     for (size_t i = 0; i < expected_results.size(); ++i) {
         EXPECT_EQ((float)expected_results[i], (float)float16_to_float32(output_ptr[i]));
     }
