@@ -33,6 +33,95 @@ static size_t GatherAxis2DimIdx(gather::gather_axis axis, int logical_dim){
     throw "GatherAxis2DimIdx() failed";
 }
 
+class gather8fsv16Fixt : public ::testing::Test {
+protected:
+    void SetUp() override {
+        //NOTE: Assume f0,f1,f2 is multiple of 16
+        auto& engine = get_test_engine();
+
+        //NOTE: blocked이던 flat이던 메모리에 이 순서 그대로 저장된다.
+        dat=generate_random_1d<FLOAT16>(b0*f0*x0*y0,0,99);
+        auto input0 = engine.allocate_memory({ data_types::f16, format::b_fs_yx_fsv16,  { b0, f0, x0, y0 } }); // Dictionary
+
+        int dimidx_of_axis = GatherAxis2DimIdx(axis,input0->get_layout().get_dims().size());
+
+        ind=generate_random_1d<float>(b1*f1*x1*y1,0,input0->get_layout().get_dim(dimidx_of_axis)-1,1);
+        auto input1 = engine.allocate_memory({ data_types::f32, format::b_fs_yx_fsv16, { b1, f1, x1, y1 } }); // Indexes
+        
+        ans=std::vector<FLOAT16>(b2*f2*x2*y2);
+
+        set_values(input0, dat);//blocked면 여기서도 순서바뀌게 저장되서 수정필요할거같다.
+        set_values(input1, ind);
+
+        topology topology;
+        topology.add(input_layout("InputDictionary", input0->get_layout()));
+        topology.add(input_layout("InputText", input1->get_layout()));
+        topology.add(gather("gather", "InputDictionary", "InputText", axis, format::b_fs_yx_fsv16, tensor(b2,f2,x2,y2), batch_dim, negative_indexes));
+
+        network network(engine, topology);
+        network.set_input_data("InputDictionary", input0);
+        network.set_input_data("InputText", input1);
+
+        auto output = network.execute().at("gather").get_memory();
+        cldnn::mem_lock<uint16_t> output_ptr(output, get_test_stream());
+        
+        auto datbfyx=dat;
+        auto indbfyx=ind;
+        for(int i=0;i<b0;i++)
+            for(int j=0;j<f0/16;j++)
+                for(int k=0;k<y0;k++)
+                    for(int l=0;l<x0;l++)
+                        for(int m=0;m<16;m++)
+                            datbfyx[i*f0*y0*x0 + (j*16+m)*y0*x0 + k*x0 + l]=dat[i*f0/16*y0*x0*16 + j*y0*x0*16 + k*x0*16 + l*16 + m];
+        for(int i=0;i<b1;i++)
+            for(int j=0;j<f1/16;j++)
+                for(int k=0;k<y1;k++)
+                    for(int l=0;l<x1;l++)
+                        for(int m=0;m<16;m++)
+                            indbfyx[i*f1*y1*x1 + (j*16+m)*y1*x1 + k*x1 + l]=ind[i*f1/16*y1*x1*16 + j*y1*x1*16 + k*x1*16 + l*16 + m];
+        
+        auto to_vec_size_t=[](const std::vector<int>& vec){return std::vector<size_t>(vec.begin(),vec.end());};
+        ngraph::runtime::reference::gather<FLOAT16,float>(
+            datbfyx.data(),
+            indbfyx.data(),
+            ans.data(),
+            ov::Shape(to_vec_size_t(input0->get_layout().get_dims())),
+            ov::Shape(to_vec_size_t(input1->get_layout().get_dims())),
+            ov::Shape({b2,f2,y2,x2}),
+            dimidx_of_axis,
+            batch_dim);
+        for(int i=0;i<b2;i++)
+            for(int j=0;j<f2/16;j++)
+                for(int k=0;k<y2;k++)
+                    for(int l=0;l<x2;l++)
+                        for(int m=0;m<16;m++)
+                            std::cout<<(
+                                (float)ans[i*f2*y2*x2 + (j*16+m)*y2*x2 + k*x2 + l] ==
+                                (float)float16_to_float32(output_ptr[i*f2/16*y2*x2*16 + j*y2*x2*16 + k*x2*16 + l*16 + m]));
+        std::cout<<std::endl;
+        for(int i=0;i<b2;i++)
+            for(int j=0;j<f2/16;j++)
+                for(int k=0;k<y2;k++)
+                    for(int l=0;l<x2;l++)
+                        for(int m=0;m<16;m++)
+                            EXPECT_EQ((float)ans[i*f2*y2*x2 + (j*16+m)*y2*x2 + k*x2 + l],
+                            (float)float16_to_float32(output_ptr[i*f2/16*y2*x2*16 + j*y2*x2*16 + k*x2*16 + l*16 + m]));
+    }
+    // void TearDown() override {}
+    std::vector<FLOAT16> dat;
+    std::vector<float> ind;
+    std::vector<FLOAT16> ans;
+    size_t b0=2, f0=16, y0=4, x0=1;
+    size_t b1=5, f1=16, y1=1, x1=1;
+    size_t b2=2, f2=16, y2=5, x2=16;
+    cldnn::gather::gather_axis axis=cldnn::gather::gather_axis::along_y;
+    int batch_dim=0;
+    bool negative_indexes = false;
+};
+TEST_F(gather8fsv16Fixt, a){}
+TEST_F(gather8fsv16Fixt, b){}
+TEST_F(gather8fsv16Fixt, c){}
+
 class gather8Fixture1 : public ::testing::Test {
 protected:
     void SetUp() override {
@@ -46,7 +135,7 @@ protected:
         ind=generate_random_1d<float>(5*6*1*1,0,input0->get_layout().get_dim(dimidx_of_axis)-1,1);
         auto input1 = engine.allocate_memory({ data_types::f32, format::bfyx, { b1, f1, x1, y1 } }); // Indexes
         
-        ans=std::vector<FLOAT16>(2*3*5*6);// ans=generate_random_1d<FLOAT16>(2*3*5*6,0,99);
+        ans=std::vector<FLOAT16>(2*3*5*6);
 
         set_values(input0, dat);
         set_values(input1, ind);

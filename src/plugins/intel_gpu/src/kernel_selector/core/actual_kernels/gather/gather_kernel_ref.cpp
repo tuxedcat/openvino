@@ -36,14 +36,14 @@ static size_t GetGatherChannelIndex(const gather_params& params) {
 ParamsKey GatherKernelRef::GetSupportedKey() const {
     ParamsKey k;
     k.EnableInputDataType(Datatype::F16);
-    k.EnableInputDataType(Datatype::F32);
-    k.EnableInputDataType(Datatype::INT32);
-    k.EnableInputDataType(Datatype::UINT8);
-    k.EnableInputDataType(Datatype::INT8);
     k.EnableOutputDataType(Datatype::F16);
+    k.EnableInputDataType(Datatype::F32);
     k.EnableOutputDataType(Datatype::F32);
+    k.EnableInputDataType(Datatype::INT32);
     k.EnableOutputDataType(Datatype::INT32);
+    k.EnableInputDataType(Datatype::INT8);
     k.EnableOutputDataType(Datatype::INT8);
+    k.EnableInputDataType(Datatype::UINT8);
     k.EnableOutputDataType(Datatype::UINT8);
     k.EnableInputLayout(DataLayout::bfyx);
     k.EnableOutputLayout(DataLayout::bfyx);
@@ -51,11 +51,17 @@ ParamsKey GatherKernelRef::GetSupportedKey() const {
     k.EnableOutputLayout(DataLayout::bfzyx);
     k.EnableInputLayout(DataLayout::bfwzyx);
     k.EnableOutputLayout(DataLayout::bfwzyx);
+    k.EnableInputLayout(DataLayout::b_fs_yx_fsv4);
     k.EnableOutputLayout(DataLayout::b_fs_yx_fsv4);
+    k.EnableInputLayout(DataLayout::b_fs_yx_fsv16);
     k.EnableOutputLayout(DataLayout::b_fs_yx_fsv16);
+    k.EnableInputLayout(DataLayout::b_fs_yx_fsv32);
     k.EnableOutputLayout(DataLayout::b_fs_yx_fsv32);
+    k.EnableInputLayout(DataLayout::b_fs_zyx_fsv16);
     k.EnableOutputLayout(DataLayout::b_fs_zyx_fsv16);
+    k.EnableInputLayout(DataLayout::b_fs_zyx_fsv32);
     k.EnableOutputLayout(DataLayout::b_fs_zyx_fsv32);
+    k.EnableInputLayout(DataLayout::bs_fs_yx_bsv16_fsv16);
     k.EnableOutputLayout(DataLayout::bs_fs_yx_bsv16_fsv16);
     k.EnableTensorOffset();
     k.EnableTensorPitches();
