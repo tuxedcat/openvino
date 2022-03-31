@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "test: gather_elements",
+            "name": "test: gather8",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/bin/intel64/Debug/clDNN_unit_tests64",
