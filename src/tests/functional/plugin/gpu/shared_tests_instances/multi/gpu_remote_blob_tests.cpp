@@ -6,20 +6,21 @@
 #include <vector>
 #include "gpu/gpu_config.hpp"
 #include "multi/multi_remote_blob_tests.hpp"
-#include "multi/multi_remote_blob_multidevice_test.hpp"
 #include "common_test_utils/test_constants.hpp"
 
-const std::vector<DevicesNamesAndSupportPair> device_names_and_support_for_remote_blobs {
-        {{GPU}, true}, // GPU via MULTI,
-        {{"GPU.0"}, true}, // GPU.0 via MULTI,
+auto device_names_and_support_for_remote_blobs = []() {
+    return std::vector<DevicesNamesAndSupportPair>{
+        {{GPU}, true},      // GPU via MULTI,
+        {{"GPU.0"}, true},  // GPU.0 via MULTI,
 #ifdef ENABLE_INTEL_CPU
-        {{GPU, CPU}, true}, // GPU+CPU
-        {{CPU, GPU}, true}, // CPU+GPU
+        {{GPU, CPU}, true},  // GPU+CPU
+        {{CPU, GPU}, true},  // CPU+GPU
 #endif
+    };
 };
 
 INSTANTIATE_TEST_SUITE_P(smoke_RemoteBlobMultiGPU, MultiDevice_SupportTest,
-                        ::testing::ValuesIn(device_names_and_support_for_remote_blobs), MultiDevice_SupportTest::getTestCaseName);
+                        ::testing::ValuesIn(device_names_and_support_for_remote_blobs()), MultiDevice_SupportTest::getTestCaseName);
 
 TEST_P(MultiDevice_Test, cannotInferRemoteBlobIfNotInitializedForDevice) {
     InferenceEngine::CNNNetwork net(fn_ptr);
@@ -57,14 +58,3 @@ const std::vector<DevicesNames> device_names_and_support_for_remote_blobs2 {
 
 INSTANTIATE_TEST_SUITE_P(smoke_RemoteBlobMultiInitializedWithoutGPU, MultiDevice_Test,
                         ::testing::ValuesIn(device_names_and_support_for_remote_blobs2), MultiDevice_Test::getTestCaseName);
-
-const std::vector<DevicesNames> multi_device_names_and_support_for_remote_blobs {
-#ifdef ENABLE_INTEL_CPU
-        {CPU, "GPU.0"},
-        {CPU, "GPU.0", "GPU.1"},  // another GPU (the test will test its presence), different OCL contexts
-#endif
-        {"GPU.0", "GPU.1"}
-};
-INSTANTIATE_TEST_SUITE_P(smoke_RemoteBlobMultiInitializedWithoutGPU, MultiDeviceMultipleGPU_Test,
-                        ::testing::ValuesIn(multi_device_names_and_support_for_remote_blobs), MultiDeviceMultipleGPU_Test::getTestCaseName);
-
