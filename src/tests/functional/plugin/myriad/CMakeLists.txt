@@ -4,6 +4,8 @@
 
 set(TARGET_NAME myriadFuncTests)
 
+ADD_LIBRARY(myriad_device_name shared_tests_instances/set_device_name.cpp)
+
 disable_deprecated_warnings()
 
 include(${XLINK_DIR}/XLink.cmake)

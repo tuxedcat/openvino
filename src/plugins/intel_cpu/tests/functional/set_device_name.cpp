@@ -3,8 +3,7 @@
 //
 #include <string>
 #include <stdexcept>
-
-#include "set_device_name.hpp"
+#include "../../../../../src/tests/functional/plugin/shared/include/set_device_name.hpp"
 
 namespace ov {
 namespace test {
