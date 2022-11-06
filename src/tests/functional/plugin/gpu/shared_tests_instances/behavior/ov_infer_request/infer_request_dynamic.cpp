@@ -21,6 +21,7 @@ auto AutoConfigs = []() {
 };
 
 auto AutoNotSupportConfigs = []() {
+    return std::vector<ov::AnyMap>{};
 };
 
 std::shared_ptr<ngraph::Function> getFunction1() {
