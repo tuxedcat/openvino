@@ -1,4 +1,4 @@
-﻿// Copyright (C) 2018-2022 Intel Corporation
+// Copyright (C) 2018-2022 Intel Corporation
 // SPDX-License-Identifier: Apache-2.0
 //
 
@@ -9071,6 +9071,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
         conv_fsv.output_paddings = {padding({ 0, 0, 0, 0 }, 0.f)};
         topology.add(conv_fsv);
     }
+    topology.add(reorder("reorder_bfyx", input_info("conv_fsv"), format::bfyx, data_types::f32));
     build_options options;
     options.set_option(build_option::optimize_data(true));
     implementation_desc conv_impl = { format::byxf, impl_name, prim_impl_types };
@@ -9083,11 +9084,10 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
     for (auto& p : network.get_primitives_info())
         std::cerr << p.original_id << " " << p.kernel_id << std::endl;
 
-    auto out_mem = network.get_output("conv_fsv").get_memory();
-    mem_lock<FLOAT16> out_ptr{ out_mem, get_test_stream() };
-    auto out_lay = out_mem->get_layout();
+    auto out_ptr = get_prim_output<FLOAT16>(network,"conv_fsv");
+    auto out_lay = get_prim_layout(network, "conv_fsv");
 
-    ASSERT_EQ(out_mem->get_layout().format, format::byxf);
+    ASSERT_EQ(out_lay.format.to_string(), format(format::byxf).to_string());
     ASSERT_EQ(out_lay.batch(), expected_result.size());
     ASSERT_EQ(out_lay.feature(), expected_result[0].size());
     ASSERT_EQ(out_lay.spatial(1), expected_result[0][0].size());
