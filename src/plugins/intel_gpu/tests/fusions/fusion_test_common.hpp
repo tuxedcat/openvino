@@ -106,6 +106,16 @@ public:
             //max(abs,rel) is common criterion in competitive programming.
             ASSERT_NEAR(refvals[i], optvals[i], tolerance*std::max(1.f,refvals[i])) << "i = " << i;
         }
+        auto sqx_accumulator = [](float acc, float x) {
+            return acc + x * x;
+        };
+        float E_X = std::accumulate(refvals.begin(), refvals.end(), 0.f) / refvals.size();
+        float E_SQX = std::accumulate(refvals.begin(), refvals.end(), 0.f, sqx_accumulator) / refvals.size();
+        float SD = std::sqrt(E_SQX - E_X * E_X);
+        float epsilon = default_tolerance(data_types::f32);
+        if (SD < epsilon * refvals.size()) {
+            std::cout << "WARNING: output variance is too low" << std::endl;
+        }
     }
 
     void check_fusions_correctness(network& network_fused, std::map<std::string, std::vector<std::string>> expected_fused_primitives_ids = {}) {
