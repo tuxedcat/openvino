@@ -39,9 +39,11 @@ public:
         bo_not_fused.set_option(build_option::allow_static_input_reorder(true));
     }
 
-    void compare(network& not_fused, network& fused, T& p, bool count_reorder = false) {
-        auto outputs_ref = not_fused.execute();
-        auto outputs_fused = fused.execute();
+    void compare(network& net_ref, network& net_opt, T& p, bool count_reorder = false) {
+        auto outputs_ref = net_ref.execute();
+        auto outputs_opt = net_opt.execute();
+        auto output_prim_id_ref = outputs_ref.begin()->first;
+        auto output_prim_id_opt = outputs_opt.begin()->first;
         auto get_reorders_count = [](network& net) -> size_t {
             size_t count = 0;
             for (auto& pi : net.get_primitives_info()) {
@@ -58,39 +60,61 @@ public:
             return count;
         };
 
-        size_t reorders_count_fused = get_reorders_count(fused);
-        size_t reorders_count_not_fused = get_reorders_count(not_fused);
+        size_t reorders_count_fused = get_reorders_count(net_opt);
+        size_t reorders_count_not_fused = get_reorders_count(net_ref);
 
         std::stringstream description;
-        description << std::endl << "not fused: " << std::endl;
-        for (auto i : not_fused.get_primitives_info()) {
+        description << std::endl << "net_ref: " << std::endl;
+        for (auto i : net_ref.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        description << "fused: " << std::endl;
-        for (auto i : fused.get_primitives_info()) {
+        description << "net_opt: " << std::endl;
+        for (auto i : net_opt.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
         SCOPED_TRACE(description.str());
         // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
-        ASSERT_EQ(fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_fused), p.expected_fused_primitives);
-        ASSERT_EQ(not_fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_not_fused), p.expected_not_fused_primitives);
-        ASSERT_EQ(outputs_ref.size(), outputs_fused.size());
+        ASSERT_EQ(net_opt.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_fused), p.expected_fused_primitives);
+        ASSERT_EQ(net_ref.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_not_fused), p.expected_not_fused_primitives);
+        ASSERT_EQ(outputs_ref.size(), outputs_opt.size());
         ASSERT_EQ(outputs_ref.size(), size_t(1));
-
-        auto output_not_fused_prim = outputs_ref.begin()->second.get_memory();
-        auto output_fused_prim = outputs_fused.begin()->second.get_memory();
-        if (output_not_fused_prim->get_layout().data_type == data_types::f32) {
-            cldnn::mem_lock<float> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<float> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(ref[i], output_ptr[i], tolerance) << "i = " << i;
-            }
+        std::vector<float> refvals;
+        std::vector<float> optvals;
+        if (net_ref.get_output_layout(output_prim_id_ref).data_type == data_types::f32) {
+            refvals=net_ref.get_output_values<float>(output_prim_id_ref);
         } else {
-            cldnn::mem_lock<int16_t> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<int16_t> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(half_to_float(ref[i]), half_to_float(output_ptr[i]), tolerance) << "i = " << i;
-            }
+            for(auto i:net_ref.get_output_values<FLOAT16>(output_prim_id_ref))
+                refvals.push_back(i);
+        }
+        if (net_opt.get_output_layout(output_prim_id_opt).data_type == data_types::f32) {
+            optvals=net_opt.get_output_values<float>(output_prim_id_opt);
+        } else {
+            for(auto i:net_opt.get_output_values<FLOAT16>(output_prim_id_opt))
+                optvals.push_back(i);
+        }
+        ASSERT_EQ(refvals.size(), optvals.size());
+        for (size_t i = 0; i < refvals.size(); i++) {
+            //abs err less than tolerance = (a-b)<tol
+            //rel err less than tolerance = (a-b)/a<tol = (a-b)<tol*a
+            //abs err or rel err less than tolerance = (a-b)<max(tol,tol*a)=tol*max(1,a)
+
+            //case1: Two very large value a,b
+            //small different behavior cause very large absolute error. relative error makes sense
+            //case2: Two very small value a,b
+            //small different behavior cause very large relative error. absolute error makes sense
+
+            //max(abs,rel) is common criterion in competitive programming.
+            ASSERT_NEAR(refvals[i], optvals[i], tolerance*std::max(1.f,refvals[i])) << "i = " << i;
+        }
+        auto sqx_accumulator = [](float acc, float x) {
+            return acc + x * x;
+        };
+        float E_X = std::accumulate(refvals.begin(), refvals.end(), 0.f) / refvals.size();
+        float E_SQX = std::accumulate(refvals.begin(), refvals.end(), 0.f, sqx_accumulator) / refvals.size();
+        float SD = std::sqrt(E_SQX - E_X * E_X);
+        float epsilon = default_tolerance(data_types::f32);
+        if (SD < epsilon * refvals.size()) {
+            std::cout << "WARNING: output variance is too low" << std::endl;
         }
     }
 
@@ -104,7 +128,7 @@ public:
                     auto fused_primitives = info->c_fused_ids;
                     for (auto& expected_fused_prim : prim.second)
                         if (std::find(fused_primitives.begin(), fused_primitives.end(), expected_fused_prim) == fused_primitives.end())
-                            FAIL() << "Couldn't find requested fused primitive id " + prim.first;
+                            FAIL() << "Couldn't find requested net_opt primitive id " + prim.first;
                 } else {
                     FAIL() << "Couldn't find requested primitive id " + prim.first;
                 }
