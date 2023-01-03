@@ -1654,6 +1654,13 @@ impl_types layout_optimizer::get_preferred_impl_type(program_node& node, format 
     return preferred_impl;
 }
 
+format layout_optimizer::get_forced_format(program_node& node) {
+    if (!_forcing_map.empty() && _forcing_map.count(node.id()) != 0) {
+        return _forcing_map.at(node.id()).first;
+    }
+    return format::any;
+}
+
 format layout_optimizer::get_preferred_format(program_node& node) {
     format expected = format::any;
     auto output_layout = node.get_output_layout();
@@ -1866,11 +1873,13 @@ void layout_optimizer::select_preferred_formats_for_onednn(program_node& node, d
                     dst_fmt = format::b_fs_yx_fsv32;
                 }
             }
+            auto forced_format = get_forced_format(node);
+            if (forced_format != format::any)
+                dst_fmt = forced_format;
 
-            if (node.get_preferred_output_fmt() == format::any) {
-                for (size_t usr = 0; usr < std::max<size_t>(1, node.get_users().size()); usr++)
+            for (size_t usr = 0; usr < std::max<size_t>(1, node.get_users().size()); usr++)
+                if (node.get_preferred_output_fmt(usr) == format::any)
                     node.set_preferred_output_fmt(usr, dst_fmt);
-            }
 
             GPU_DEBUG_LOG << "select_preferred_formats:" << node.id() << ": " << fmt_to_str(src_fmt) << " --> " << fmt_to_str(dst_fmt)
                           << " For index : " << idx << std::endl;
