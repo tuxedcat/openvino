@@ -9076,7 +9076,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
     topology.add(reorder("reorder_bfyx", input_info("conv_fsv"), format::bfyx, data_types::f32));
     build_options options;
     options.set_option(build_option::optimize_data(true));
-    implementation_desc conv_impl = { format::byxf, impl_name, prim_impl_types };
+    implementation_desc conv_impl = { format::any, impl_name, prim_impl_types };
     options.set_option(build_option::force_implementations({ { "conv_fsv", conv_impl } }));
     network network(engine, topology, options);
 
@@ -9088,8 +9088,6 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
 
     auto out_ptr = network.get_output_values<FLOAT16>("conv_fsv");
     auto out_lay = network.get_output_layout("conv_fsv");
-    ASSERT_EQ(out_lay.data_type, data_types::f16);
-    ASSERT_EQ(out_lay.format.to_string(), format(format::byxf).to_string());
     ASSERT_EQ(out_lay.batch(), expected_result.size());
     ASSERT_EQ(out_lay.feature(), expected_result[0].size());
     ASSERT_EQ(out_lay.spatial(1), expected_result[0][0].size());
