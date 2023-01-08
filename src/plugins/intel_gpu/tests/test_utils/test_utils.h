@@ -580,7 +580,6 @@ T div_up(const T a, const U b) {
 }
 
 double default_tolerance(data_types dt);
-
 class membuf : public std::streambuf
 {
 public:
