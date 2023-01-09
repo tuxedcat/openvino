@@ -9068,6 +9068,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
     topology.add(reorder("reorder_bfyx", input_info("conv_fsv"), format::bfyx, data_types::f32));
     build_options options;
     options.set_option(build_option::optimize_data(true));
+    options.set_option(build_option::outputs({"conv_fsv","reorder_bfyx"}));
     network network(engine, topology, options);
 
     network.set_input_data("input", input_mem);
