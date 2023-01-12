@@ -9067,6 +9067,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
 
     ExecutionConfig config;
     config.set_property(ov::intel_gpu::optimize_data(true));
+    config.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
     config.set_property(ov::intel_gpu::custom_outputs({"conv_fsv","reorder_bfyx"}));
     network network(engine, topology, config);
     network.set_input_data("input", input_mem);
