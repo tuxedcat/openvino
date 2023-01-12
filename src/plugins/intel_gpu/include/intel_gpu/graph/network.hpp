@@ -135,7 +135,7 @@ public:
         std::vector<float> ret;
         auto ptr = get_output_memory(output_id);
         auto out_ids = get_output_ids();
-        if (find(out_ids.begin(), out_ids.end(), output_id) == out_ids.end())
+        if (find(out_ids.begin(), out_ids.end(), output_id) == out_ids.end() && get_config().get_property(ov::intel_gpu::enable_memory_pool))
             IE_THROW() << "Non output node's memory may have been reused. "
                           "Make target node to output by using ov::intel_gpu::custom_outputs in ExecutionConfig.";
         mem_lock<T, mem_lock_type::read> mem(ptr, get_stream());

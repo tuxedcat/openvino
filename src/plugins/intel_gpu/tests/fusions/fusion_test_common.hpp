@@ -29,8 +29,11 @@ public:
 
     static const int min_random = -200;
     static const int max_random = 200;
-
+    BaseFusingTest() : cfg_fused(ov::device::id("1")), cfg_not_fused(ov::device::id("1")) {}
     void SetUp() override {
+        cfg_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+        cfg_not_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+
         cfg_fused.set_property(ov::intel_gpu::optimize_data(true));
         cfg_not_fused.set_property(ov::intel_gpu::optimize_data(false));
         cfg_not_fused.set_property(ov::intel_gpu::allow_static_input_reorder(true));
@@ -99,14 +102,14 @@ public:
         auto lay_ref=net_ref.get_output_layout(out_id_ref);
         auto lay_opt=net_ref.get_output_layout(out_id_opt);
         if (lay_ref.data_type == data_types::f32) {
-            val_ref = net_ref.get_output_values<float>(out_id_ref);
+            val_ref = net_ref.get_output_values_to_float<float>(out_id_ref);
         } else {
-            val_ref = net_ref.get_output_values<FLOAT16, float>(out_id_ref);
+            val_ref = net_ref.get_output_values_to_float<FLOAT16>(out_id_ref);
         }
         if (lay_opt.data_type == data_types::f32) {
-            val_opt = net_opt.get_output_values<float>(out_id_opt);
+            val_opt = net_opt.get_output_values_to_float<float>(out_id_opt);
         } else {
-            val_opt = net_opt.get_output_values<FLOAT16, float>(out_id_opt);
+            val_opt = net_opt.get_output_values_to_float<FLOAT16>(out_id_opt);
         }
 
         ASSERT_EQ(val_ref.size(), val_opt.size());
