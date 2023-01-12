@@ -359,6 +359,7 @@ std::vector<cldnn::data_types> generic_test::test_data_types() {
 }
 
 double default_tolerance(data_types dt) {
+    // return 1e-2;
     switch (dt) {
     case data_types::f16:
         return 1e-3;

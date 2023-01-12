@@ -36,9 +36,12 @@ public:
         cfg_not_fused.set_property(ov::intel_gpu::allow_static_input_reorder(true));
     }
 
-    void compare(network& not_fused, network& fused, T& p, bool count_reorder = false) {
-        auto outputs_ref = not_fused.execute();
-        auto outputs_fused = fused.execute();
+    void compare(network& net_ref, network& net_opt, T& p, bool count_reorder = false) {
+        auto outnodes_ref = net_ref.execute();
+        auto outnodes_opt = net_opt.execute();
+        auto out_id_ref = outnodes_ref.begin()->first;
+        auto out_id_opt = outnodes_opt.begin()->first;
+
         auto get_reorders_count = [](network& net) -> size_t {
             size_t count = 0;
             for (auto& pi : net.get_primitives_info()) {
@@ -55,39 +58,103 @@ public:
             return count;
         };
 
-        size_t reorders_count_fused = get_reorders_count(fused);
-        size_t reorders_count_not_fused = get_reorders_count(not_fused);
+        size_t reorders_count_ref = get_reorders_count(net_ref);
+        size_t reorders_count_opt = get_reorders_count(net_opt);
 
         std::stringstream description;
-        description << std::endl << "not fused: " << std::endl;
-        for (auto i : not_fused.get_primitives_info()) {
+        description << std::endl << "net_ref: " << std::endl;
+        for (auto i : net_ref.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        description << "fused: " << std::endl;
-        for (auto i : fused.get_primitives_info()) {
+        description << "net_opt: " << std::endl;
+        for (auto i : net_opt.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        SCOPED_TRACE(description.str());
-        // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
-        ASSERT_EQ(fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_fused), p.expected_fused_primitives);
-        ASSERT_EQ(not_fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_not_fused), p.expected_not_fused_primitives);
-        ASSERT_EQ(outputs_ref.size(), outputs_fused.size());
-        ASSERT_EQ(outputs_ref.size(), size_t(1));
+        // SCOPED_TRACE(description.str());
+        std::cout << description.str() << std::endl;
 
-        auto output_not_fused_prim = outputs_ref.begin()->second.get_memory();
-        auto output_fused_prim = outputs_fused.begin()->second.get_memory();
-        if (output_not_fused_prim->get_layout().data_type == data_types::f32) {
-            cldnn::mem_lock<float> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<float> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(ref[i], output_ptr[i], tolerance) << "i = " << i;
-            }
+        // print_primitive<uint8_t>(net_opt,"input");
+        // print_primitive<int8_t>(net_opt,"input");
+        // print_primitive<FLOAT16>(net_opt,"input");
+        // print_primitive<float>(net_opt,"input");
+        // print_primitive<float>(net_ref,out_id_ref);
+        // print_primitive<float>(net_opt,out_id_opt);
+
+        print_primitive<FLOAT16>(net_ref,"input0");
+        print_primitive<FLOAT16>(net_ref,"input1");
+        print_primitive<float>(net_ref,"in_lo");
+        print_primitive<float>(net_ref,"in_hi");
+        print_primitive<float>(net_ref,"out_lo");
+        print_primitive<float>(net_ref,"out_hi");
+
+        print_primitive<FLOAT16>(net_ref,"gemm_prim");
+        print_primitive<int8_t>(net_ref,"quantize");
+        print_primitive<int8_t>(net_opt,"gemm_prim");
+
+        print_primitive<float>(net_ref,out_id_ref,987654321);
+        print_primitive<float>(net_opt,out_id_opt,987654321);
+
+        std::vector<float> val_ref;
+        std::vector<float> val_opt;
+        auto lay_ref=net_ref.get_output_layout(out_id_ref);
+        auto lay_opt=net_ref.get_output_layout(out_id_opt);
+        if (lay_ref.data_type == data_types::f32) {
+            val_ref = net_ref.get_output_values<float>(out_id_ref);
         } else {
-            cldnn::mem_lock<int16_t> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<int16_t> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(half_to_float(ref[i]), half_to_float(output_ptr[i]), tolerance) << "i = " << i;
+            val_ref = net_ref.get_output_values<FLOAT16, float>(out_id_ref);
+        }
+        if (lay_opt.data_type == data_types::f32) {
+            val_opt = net_opt.get_output_values<float>(out_id_opt);
+        } else {
+            val_opt = net_opt.get_output_values<FLOAT16, float>(out_id_opt);
+        }
+
+        ASSERT_EQ(val_ref.size(), val_opt.size());
+        ASSERT_TRUE(format::is_simple_data_format(lay_ref.format));
+        ASSERT_TRUE(format::is_simple_data_format(lay_opt.format));
+        ASSERT_TRUE(lay_ref.count() == lay_opt.count());
+        // NOTE:
+        // val_ref.size()==memory size
+        // lay_ref.count()==shape size
+        // val_ref.size()>=lay_ref.count()
+        // This loop is valid only when lay_ref is planar(simple) format
+        for (size_t i = 0; i < lay_ref.count(); i++) {
+            // ASSERT_NEAR(val_ref[i],
+            //             val_opt[i],
+            //             tolerance * std::max({1.f, std::abs(val_ref[i]), std::abs(val_opt[i])}))
+            //     << "i = " << i;
+            ASSERT_NEAR(val_ref[i],
+                        val_opt[i],
+                        tolerance)
+                << "i = " << i;
+        }
+        // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
+        ASSERT_EQ(net_opt.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_opt), p.expected_fused_primitives);
+        ASSERT_EQ(net_ref.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_ref), p.expected_not_fused_primitives);
+        ASSERT_TRUE(outnodes_ref.size() == 1);
+        ASSERT_TRUE(outnodes_opt.size() == 1);
+
+        GPU_DEBUG_GET_INSTANCE(debug_config);
+        GPU_DEBUG_IF(debug_config->verbose >= 2) {
+            float E_X = 0;
+            float E_SQX = 0;
+            float abs_diff_sum = 0;
+            float max_abs_X = 0;
+            for (size_t i = 0; i < val_ref.size(); i++) {
+                E_X += val_ref[i];
+                E_SQX += val_ref[i] * val_ref[i];
+                abs_diff_sum += std::abs(val_ref[i] - val_opt[i]);
+                max_abs_X = std::max(max_abs_X, val_ref[i]);
             }
+            E_X /= val_ref.size();
+            E_SQX /= val_ref.size();
+            float SD = std::sqrt((E_SQX - E_X * E_X));
+            if (SD < tolerance * val_ref.size())
+                GPU_DEBUG_INFO << "WARNING: output variance is too low" << std::endl;
+            if (abs_diff_sum / val_ref.size() > tolerance * val_ref.size())
+                GPU_DEBUG_INFO << "WARNING: output average difference is too high" << std::endl;
+            if (max_abs_X >= 1e6)
+                GPU_DEBUG_INFO << "WARNING: output absolute value is too high" << std::endl;
         }
     }
 
@@ -119,7 +186,7 @@ public:
             VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(s.count(), min_random, max_random);
             set_values(prim, rnd_vec);
         } else if (l.data_type == data_types::f16) {
-            VF<uint16_t> rnd_vec = generate_random_1d<uint16_t>(s.count(), -1, 1);
+            VF<FLOAT16> rnd_vec = generate_random_1d<FLOAT16>(s.count(), -1, 1);
             set_values(prim, rnd_vec);
         } else {
             VF<float> rnd_vec = generate_random_1d<float>(s.count(), -1, 1);

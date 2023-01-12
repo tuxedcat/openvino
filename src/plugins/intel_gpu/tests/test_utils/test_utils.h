@@ -185,7 +185,7 @@ inline VF<T> flatten_6d(cldnn::format input_format, VVVVVVF<T> &data) {
 
 template<typename T>
 std::vector<T> generate_random_1d(size_t a, int min, int max, int k = 8) {
-    static std::default_random_engine generator(random_seed);
+    static std::mt19937_64 generator(random_seed);
     // 1/k is the resolution of the floating point numbers
     std::uniform_int_distribution<int> distribution(k * min, k * max);
     std::vector<T> v(a);
@@ -573,6 +573,23 @@ T div_up(const T a, const U b) {
 }
 
 double default_tolerance(data_types dt);
+template <class T>
+inline void print_primitive(network& net, const std::string& prim_id, size_t max_cnt = 300) {
+    std::cout << "========== "
+              << prim_id << '.'
+              << dt_to_str(type_to_data_type<T>::value) << '.'
+              << net.get_executed_primitives().size()
+              << " ==========" << std::endl;
+    try {
+        auto a = net.get_output_values<T, float>(prim_id, max_cnt);
+        for (float i : a)
+            std::cout << std::setw(6) << std::to_string(i).substr(0, 5) << ' ';
+        std::cout << (a.size() == max_cnt ? " ...\n" : "\n");
+    } catch (const std::exception& e) {
+        std::cout << "Failed to print " << prim_id << " with the exception below." << std::endl;
+        std::cout << "Exception: " << e.what() << std::endl;
+    }
+}
 class membuf : public std::streambuf
 {
 public:
