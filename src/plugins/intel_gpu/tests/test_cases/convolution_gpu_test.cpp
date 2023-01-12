@@ -9068,7 +9068,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
     ExecutionConfig config;
     config.set_property(ov::intel_gpu::optimize_data(true));
     config.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
-    config.set_property(ov::intel_gpu::custom_outputs({"conv_fsv","reorder_bfyx"}));
+    config.set_property(ov::intel_gpu::custom_outputs(std::vector<std::string>{"conv_fsv","reorder_bfyx"}));
     network network(engine, topology, config);
     network.set_input_data("input", input_mem);
     network.execute();
@@ -9076,7 +9076,7 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
     for (auto& p : network.get_primitives_info())
         std::cerr << p.original_id << " " << p.kernel_id << std::endl;
 
-    auto out_ptr = network.get_output_values_to_float("conv_fsv");
+    auto out_ptr = network.get_output_values_to_float<FLOAT16>("conv_fsv");
     auto out_lay = network.get_output_layout("conv_fsv");
     ASSERT_EQ(out_lay.batch(), expected_result.size());
     ASSERT_EQ(out_lay.feature(), expected_result[0].size());
