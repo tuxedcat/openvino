@@ -608,6 +608,23 @@ private:
     std::vector<int_type> _buf;
     size_t _pos;
 };
+template <class T>
+inline void print_primitive(network& net, const std::string& prim_id, size_t max_cnt = 300) {
+    std::cout << "========== "
+              << prim_id << '.'
+              << dt_to_str(type_to_data_type<T>::value) << '.'
+              << net.get_executed_primitives().size()
+              << " ==========" << std::endl;
+    try {
+        auto a = net.get_output_values_to_float<T>(prim_id, max_cnt);
+        for (float i : a)
+            std::cout << std::setw(6) << std::to_string(i).substr(0, 5) << ' ';
+        std::cout << (a.size() == max_cnt ? " ...\n" : "\n");
+    } catch (const std::exception& e) {
+        std::cout << "Failed to print " << prim_id << " with the exception below." << std::endl;
+        std::cout << "Exception: " << e.what() << std::endl;
+    }
+}
 // inline void print_bin_blob(cldnn::memory& mem, std::string name)
 // {
 //     auto&& size = mem.get_layout().get_tensor();
