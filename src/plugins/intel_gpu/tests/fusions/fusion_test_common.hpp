@@ -82,23 +82,8 @@ public:
         // SCOPED_TRACE(description.str());
         std::cout << description.str() << std::endl;
 
-        // print_primitive<uint8_t>(net_opt,"input");
-        // print_primitive<int8_t>(net_opt,"input");
-        // print_primitive<FLOAT16>(net_opt,"input");
-        // print_primitive<float>(net_opt,"input");
-        // print_primitive<float>(net_ref,out_id_ref);
-        // print_primitive<float>(net_opt,out_id_opt);
-
-        print_primitive<FLOAT16>(net_ref,"input0");
-        print_primitive<FLOAT16>(net_ref,"input1");
-        print_primitive<float>(net_ref,"in_lo");
-        print_primitive<float>(net_ref,"in_hi");
-        print_primitive<float>(net_ref,"out_lo");
-        print_primitive<float>(net_ref,"out_hi");
-
-        print_primitive<FLOAT16>(net_ref,"gemm_prim");
-        print_primitive<int8_t>(net_ref,"quantize");
-        print_primitive<int8_t>(net_opt,"gemm_prim");
+        // print_primitive<FLOAT16>(net_ref,"input0");
+        // print_primitive<FLOAT16>(net_ref,"input1");
 
         print_primitive<float>(net_ref,out_id_ref,987654321);
         print_primitive<float>(net_opt,out_id_opt,987654321);
