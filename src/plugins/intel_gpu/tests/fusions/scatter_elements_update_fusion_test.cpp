@@ -105,7 +105,7 @@ TEST_P(scatter_elements_update_quantize, basic) {
         r
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -142,7 +142,7 @@ TEST_P(scatter_elements_update_scale_activation_eltwise, basic) {
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-2f;
+    tolerance_abs = 1e-2f;
     execute(p);
 }
 

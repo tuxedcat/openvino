@@ -86,7 +86,7 @@ TEST_P(permute_eltwise_loop, basic) {
         reorder("output", input_info("loop"), format::bfyx, p.default_type)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

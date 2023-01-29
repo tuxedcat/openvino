@@ -25,7 +25,8 @@ public:
     ExecutionConfig cfg_fused;
     ExecutionConfig cfg_not_fused;
 
-    float tolerance = 0.0f;
+    float tolerance_abs = 0.0f;
+    float tolerance_rel = 0.01f;
 
     static const int min_random = -200;
     static const int max_random = 200;
@@ -113,14 +114,8 @@ public:
         // val_ref.size()>=lay_ref.count()
         // This loop is valid only when lay_ref is planar(simple) format
         for (size_t i = 0; i < lay_ref.count(); i++) {
-            // ASSERT_NEAR(val_ref[i],
-            //             val_opt[i],
-            //             tolerance * std::max({1.f, std::abs(val_ref[i]), std::abs(val_opt[i])}))
-            //     << "i = " << i;
-            ASSERT_NEAR(val_ref[i],
-                        val_opt[i],
-                        tolerance)
-                << "i = " << i;
+            float err = abs(val_opt[i] - val_ref[i]);
+            ASSERT_TRUE(err < tolerance_abs || err < tolerance_rel * abs(val_ref[i])) << "i = " << i;
         }
         // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
         ASSERT_EQ(net_opt.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_opt), p.expected_fused_primitives);
@@ -143,9 +138,9 @@ public:
             E_X /= val_ref.size();
             E_SQX /= val_ref.size();
             float SD = std::sqrt((E_SQX - E_X * E_X));
-            if (SD < tolerance * val_ref.size())
+            if (SD < tolerance_abs * val_ref.size())
                 GPU_DEBUG_INFO << "WARNING: output variance is too low" << std::endl;
-            if (abs_diff_sum / val_ref.size() > tolerance * val_ref.size())
+            if (abs_diff_sum / val_ref.size() > tolerance_abs * val_ref.size())
                 GPU_DEBUG_INFO << "WARNING: output average difference is too high" << std::endl;
             if (max_abs_X >= 1e6)
                 GPU_DEBUG_INFO << "WARNING: output absolute value is too high" << std::endl;

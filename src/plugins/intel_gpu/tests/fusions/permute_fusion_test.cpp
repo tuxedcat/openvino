@@ -172,7 +172,7 @@ TEST_P(permute_activation_scale_eltwise, basic) {
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, p.default_type)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -266,7 +266,7 @@ TEST_P(permute_quant_u8, basic) {
         reorder("reorder_bfyx", input_info("quant"), p.default_format, p.default_type)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -301,7 +301,7 @@ TEST_P(permute_scale_actv_eltw_scale_actv_quant_i8, basic) {
         reorder("out", input_info("quant"), p.default_format, p.default_type)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -374,7 +374,7 @@ TEST_P(permute_scale_eltwise_actv_scale_actv, basic) {
         reorder("reorder_bfyx", input_info("actv2"), p.default_format, p.default_type)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -511,7 +511,7 @@ TEST_P(permute_redundant_reorder, basic) {
         permute("permute2", input_info("reorder1"), p.permute_order2)                   // dummy last op to make reorder fused
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -560,7 +560,7 @@ TEST_P(permute_act_reorder, basic) {
         permute("permute2", input_info("reorder1"), p.permute_order2)                   // dummy last op to make reorder fused
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

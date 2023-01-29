@@ -99,7 +99,7 @@ TEST_P(resample_quantize, basic) {
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -139,7 +139,7 @@ TEST_P(resample_scale_activation_eltwise, basic) {
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -194,7 +194,7 @@ TEST_P(resample_quantize_concat, along_f) {
         reorder("reorder_bfyx", input_info("concat"), cldnn::format::bfyx, p.default_type)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -239,7 +239,7 @@ TEST_P(resample_eltwise_concat, along_f) {
         reorder("reorder_bfyx", input_info("concat"), cldnn::format::bfyx, p.default_type)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -287,7 +287,7 @@ TEST_P(resample_eltwise_fusing_through, reshape) {
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p, {{"resample_prim", {"eltwise"}}});
 }
 
@@ -332,7 +332,7 @@ TEST_P(resample_eltwise_fusing_through_not_allowed, reshape_two_users) {
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

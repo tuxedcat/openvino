@@ -87,7 +87,7 @@ TEST_P(depth_to_space_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -118,7 +118,7 @@ TEST_P(depth_to_space_scale_act_eltwise_quantize_u8, basic) {
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -148,7 +148,7 @@ TEST_P(depth_to_space_scale_act_eltw, basic) {
         reorder("reorder_bfyx", input_info("eltw"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

@@ -107,7 +107,7 @@ TEST_P(mvn_activation, basic) {
         reorder("reorder_bfyx", input_info("act"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -151,7 +151,7 @@ TEST_P(mvn_scale_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -199,7 +199,7 @@ TEST_P(mvn_scale_activation_eltwise_fp32_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -250,7 +250,7 @@ TEST_P(mvn_eltwise, basic) {
         reorder("reorder_bfyx", input_info("eltw"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -286,7 +286,7 @@ TEST_P(mvn_eltwise_f16, basic) {
         reorder("reorder_bfyx", input_info("eltw"), p.default_format, data_types::f32)
     );
 
-    tolerance = 0.1f;
+    tolerance_abs = 0.1f;
     execute(p);
 }
 

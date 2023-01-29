@@ -82,7 +82,7 @@ TEST_P(space_to_batch_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -113,7 +113,7 @@ TEST_P(space_to_batch_scale_act_eltwise_quantize_u8, basic) {
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -143,7 +143,7 @@ TEST_P(space_to_batch_scale_act_eltw, basic) {
         reorder("reorder_bfyx", input_info("eltw"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

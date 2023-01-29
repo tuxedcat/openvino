@@ -107,7 +107,7 @@ TEST_P(concat_onednn_activation, along_f) {
         reorder("reorder_bfyx", input_info("act"), cldnn::format::bfyx, p.default_type)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -129,7 +129,7 @@ TEST_P(concat_onednn_eltwise, along_f) {
         reorder("reorder_bfyx", input_info("scale"), cldnn::format::bfyx, p.default_type)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 

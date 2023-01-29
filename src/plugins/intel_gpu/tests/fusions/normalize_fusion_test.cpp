@@ -89,7 +89,7 @@ TEST_P(normalize_i8_quantize, basic) {
         reorder("output_reorder", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1;
+    tolerance_abs = 1;
     execute(p);
 }
 
@@ -111,7 +111,7 @@ TEST_P(normalize_i8_float, basic) {
         reorder("output_reorder", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-05f;
+    tolerance_abs = 1e-05f;
     execute(p);
 }
 

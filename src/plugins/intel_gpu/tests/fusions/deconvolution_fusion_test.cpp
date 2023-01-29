@@ -241,7 +241,7 @@ TEST_P(deconv_actv, basic) {
         reorder("out", input_info("act"), p.default_format, data_types::f32)
     );
     // Need much higher tolerance because of deconvolution -> convolution optimization
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -336,7 +336,7 @@ TEST_P(deconv_bias, basic) {
     );
 
     // Need much higher tolerance because of deconvolution -> convolution optimization
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -386,7 +386,7 @@ TEST_P(deconv_scale, basic) {
         reorder("out", input_info("scale"), p.default_format, data_types::f32)
     );
 
-    tolerance = default_tolerance(p.data_type);
+    tolerance_abs = default_tolerance(p.data_type);
     execute(p, get_mem(get_input_layout(p), 0, 16));
 }
 
@@ -401,7 +401,7 @@ TEST_P(deconv_scale, fp16_scale_out) {
         reorder("out", input_info("scale"), p.default_format, data_types::f32)
     );
 
-    tolerance = default_tolerance(p.data_type);
+    tolerance_abs = default_tolerance(p.data_type);
     execute(p, get_mem(get_input_layout(p), 0, 16));
 }
 
@@ -457,7 +457,7 @@ TEST_P(deconv_actv_eltw_actv, basic) {
         reorder("out", input_info("act2"), p.default_format, data_types::f32)
     );
     // Need much higher tolerance because of deconvolution -> convolution optimization
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -560,7 +560,7 @@ TEST_P(deconv_scale_actv_quant_i8, basic) {
     if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives++;
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -671,7 +671,7 @@ TEST_P(deconv_scale_actv_quant_u8_eltw_scale_actv_quant_i8, basic) {
                  input_info("out2_lo"), input_info("out2_hi"), 255, data_types::i8),
         reorder("out", input_info("quant2"), p.default_format, data_types::f32)
     );
-    tolerance = 2.1f;
+    tolerance_abs = 2.1f;
     execute(p);
 }
 
@@ -779,7 +779,7 @@ TEST_P(deconv_scale_activation_quantize_i8_eltwise_quantize_u8, basic) {
         reorder("reorder_bfyx", input_info("quant2"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -814,7 +814,7 @@ TEST_P(deconv_activation_eltwise_diff_sizes, basic) {
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

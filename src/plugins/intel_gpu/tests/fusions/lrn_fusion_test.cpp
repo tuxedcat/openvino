@@ -125,7 +125,7 @@ TEST_P(lrn_fp32_quantize_u8_eltwise_activation, basic) {
     if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives++;
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -152,7 +152,7 @@ TEST_P(lrn_fp32_quantize_u8_eltwise_activation, per_channel) {
         reorder("reorder", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -203,7 +203,7 @@ TEST_P(lrn_fp32_quantize_i8_eltwise_activation, basic) {
         reorder("reorder", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -247,7 +247,7 @@ TEST_P(lrn_fp32_eltwise_activation_quantize_u8, basic) {
         reorder("reorder", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -282,7 +282,7 @@ TEST_P(lrn_fp16_eltwise_activation, basic) {
         reorder("reorder", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-05f;
+    tolerance_abs = 1e-05f;
     execute(p);
 }
 
