@@ -623,6 +623,7 @@ INSTANTIATE_TEST_SUITE_P(fusings_gpu, conv_fp32_add_per_element_planar_const, ::
     convolution_test_params{ CASE_CONV_FP32_3, 3, 3, 4 },
 }));
 
+#include "intel_gpu/primitives/border.hpp"
 class conv_fp32_prelu_eltwise : public ConvFusingTest {};
 TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
     auto p = GetParam();
@@ -630,12 +631,19 @@ TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
         input_layout("input", get_input_layout(p)),
         data("weights", get_mem(get_weights_layout(p))),
         data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        // data("eltwise_data", get_mem(get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
+        
         // data("slope_data", get_mem(get_per_channel_layout(p))),
         // activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
-        eltwise("eltwise", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
-        reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
+        // eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
+        
+        // eltwise("eltwise", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
+        
+        // border("border",input_info("conv_prim")),
+        // eltwise("eltwise", input_info("border"), input_info("eltwise_data"), eltwise_mode::sum),
+        
+        reorder("reorder_bfyx", input_info("conv_prim"), p.default_format, data_types::f32)
     );
 
     tolerance_abs = default_tolerance(p.data_type) * 2;

@@ -83,11 +83,11 @@ public:
         // SCOPED_TRACE(description.str());
         std::cout << description.str() << std::endl;
 
-        // print_primitive<FLOAT16>(net_ref,"input0");
-        // print_primitive<FLOAT16>(net_ref,"input1");
+        print_primitive<float>(net_ref,out_id_ref,true, 18);
+        print_primitive<float>(net_opt,out_id_opt,true, 18);
 
-        print_primitive<float>(net_ref,out_id_ref,987654321);
-        print_primitive<float>(net_opt,out_id_opt,987654321);
+        print_primitive<FLOAT16>(net_ref,"bias",true, 6);
+        print_primitive<FLOAT16>(net_ref,"conv_prim",true, 18);
 
         std::vector<float> val_ref;
         std::vector<float> val_opt;

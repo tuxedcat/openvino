@@ -590,7 +590,7 @@ std::vector<float> get_output_values_to_float(network& net, const primitive_id& 
 }
 double default_tolerance(data_types dt);
 template <class T>
-inline void print_primitive(network& net, const std::string& prim_id, size_t max_cnt = 300) {
+inline void print_primitive(network& net, const std::string& prim_id, bool format_xy=false, size_t max_cnt = 300) {
     std::cout << "========== "
               << prim_id << '.'
               << dt_to_str(type_to_data_type<T>::value) << '.'
@@ -598,8 +598,14 @@ inline void print_primitive(network& net, const std::string& prim_id, size_t max
               << " ==========" << std::endl;
     try {
         auto a = net.get_output_values_to_float<T>(prim_id, max_cnt);
-        for (float i : a)
-            std::cout << std::setw(6) << std::to_string(i).substr(0, 5) << ' ';
+        auto b = net.get_output_layout(prim_id);
+        for (size_t i = 0; i < a.size(); i++) {
+            std::cout << std::setw(6) << std::to_string(a[i]).substr(0, 5) << ' ';
+            if (format_xy && (i + 1) % b.spatial(0) == 0)
+                std::cout << std::endl;
+            if (format_xy && (i + 1) % (b.spatial(0) * b.spatial(1)) == 0)
+                std::cout << std::endl;
+        }
         std::cout << (a.size() == max_cnt ? " ...\n" : "\n");
     } catch (const std::exception& e) {
         std::cout << "Failed to print " << prim_id << " with the exception below." << std::endl;
