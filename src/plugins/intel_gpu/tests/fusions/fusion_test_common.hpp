@@ -80,14 +80,15 @@ public:
         for (auto i : net_opt.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        // SCOPED_TRACE(description.str());
+
         std::cout << description.str() << std::endl;
-
-        print_primitive<float>(net_ref,out_id_ref,true, 18);
-        print_primitive<float>(net_opt,out_id_opt,true, 18);
-
-        print_primitive<FLOAT16>(net_ref,"bias",true, 6);
-        print_primitive<FLOAT16>(net_ref,"conv_prim",true, 18);
+        print_primitive<FLOAT16>(net_ref,"input",true);
+        print_primitive<FLOAT16>(net_ref,"weights_generic_layer_0",true,32);
+        print_primitive<FLOAT16>(net_opt,"weights_generic_layer_0",true,32);
+        // print_primitive<FLOAT16>(net_ref,"reduce",true);
+        // print_primitive<FLOAT16>(net_opt,"reduce",true);
+        print_primitive<float>(net_ref,out_id_ref,true);
+        print_primitive<float>(net_opt,out_id_opt,true);
 
         std::vector<float> val_ref;
         std::vector<float> val_opt;
@@ -115,7 +116,9 @@ public:
         // This loop is valid only when lay_ref is planar(simple) format
         for (size_t i = 0; i < lay_ref.count(); i++) {
             float err = abs(val_opt[i] - val_ref[i]);
-            ASSERT_TRUE(err < tolerance_abs || err < tolerance_rel * abs(val_ref[i])) << "i = " << i;
+            ASSERT_TRUE(err < std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])))
+                << "i = " << i << "\ntolerance = " << std::max(tolerance_abs, tolerance_rel * abs(val_ref[i]))
+                << "\ndiff = " << err << "\nref[i] = " << val_ref[i] << "\nopt[i] = " << val_opt[i];
         }
         // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
         ASSERT_EQ(net_opt.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_opt), p.expected_fused_primitives);
@@ -167,46 +170,37 @@ public:
 
     cldnn::memory::ptr get_mem(cldnn::layout l) {
         auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
         if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec = generate_random_1d<int32_t>(s.count() / 32, min_random, max_random);
+            VF<int32_t> rnd_vec = generate_random_1d<int32_t>(prim->size() / 32, min_random, max_random);
             set_values(prim, rnd_vec);
         } else if (l.data_type == data_types::i8 || l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(s.count(), min_random, max_random);
+            VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(prim->size(), min_random, max_random);
             set_values(prim, rnd_vec);
         } else if (l.data_type == data_types::f16) {
-            VF<FLOAT16> rnd_vec = generate_random_1d<FLOAT16>(s.count(), -1, 1);
+            VF<FLOAT16> rnd_vec = generate_random_1d<FLOAT16>(prim->size(), -1, 1);
             set_values(prim, rnd_vec);
         } else {
-            VF<float> rnd_vec = generate_random_1d<float>(s.count(), -1, 1);
+            VF<float> rnd_vec = generate_random_1d<float>(prim->size(), -1, 1);
             set_values(prim, rnd_vec);
         }
-
         return prim;
     }
 
     cldnn::memory::ptr get_mem(cldnn::layout l, float fill_value) {
         auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
         if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec(s.count() / 32, static_cast<int32_t>(fill_value));
+            VF<int32_t> rnd_vec(prim->size() / 32, fill_value);
+            set_values(prim, rnd_vec);
+        } else if (l.data_type == data_types::i8 || l.data_type == data_types::u8) {
+            VF<uint8_t> rnd_vec(prim->size(), fill_value);
             set_values(prim, rnd_vec);
         } else if (l.data_type == data_types::f16) {
-            VF<uint16_t> rnd_vec(s.count(), float_to_half(fill_value));
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::f32) {
-            VF<float> rnd_vec(s.count(), fill_value);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec(s.count(), static_cast<uint8_t>(fill_value));
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::i8) {
-            VF<int8_t> rnd_vec(s.count(), static_cast<int8_t>(fill_value));
+            VF<FLOAT16> rnd_vec(prim->size(), fill_value);
             set_values(prim, rnd_vec);
         } else {
-            throw std::runtime_error("get_mem: Unsupported precision");
+            VF<float> rnd_vec(prim->size(), fill_value);
+            set_values(prim, rnd_vec);
         }
-
         return prim;
     }
 

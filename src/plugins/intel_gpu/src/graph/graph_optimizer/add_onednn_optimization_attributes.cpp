@@ -7,6 +7,7 @@
 
 #ifdef ENABLE_ONEDNN_FOR_GPU
 #include "fully_connected_inst.h"
+#include "gemm_inst.h"
 #include <impls/onednn/utils.hpp>
 #endif
 
@@ -28,6 +29,15 @@ void add_onednn_optimization_attributes::run(program& p) {
                             onednn::combine_bf_with_first_spatial_dim(original_layout);
                             dependency.set_output_layout(original_layout, false);
                         }
+                    }
+                }
+            } else if (node->is_type<gemm>()) {
+                for (auto& fused_prim : node->get_fused_primitives()) {
+                    if (fused_prim.is_type<eltwise>()) {
+                        auto& dependency = node->get_dependency(fused_prim.dep_start_idx);
+                        auto original_layout = dependency.get_output_layout();
+                        onednn::combine_bf(original_layout);
+                        dependency.set_output_layout(original_layout, false);
                     }
                 }
             }

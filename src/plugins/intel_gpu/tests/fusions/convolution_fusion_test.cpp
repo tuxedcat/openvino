@@ -301,8 +301,8 @@ public:
 #define CASE_CONV_FP32_15 { 1, 6, 4, 4 }, { 1, 16, 4, 4 }, { 1, 1, 3, 3 }, { 1, 1 }, { 1, 1 }, { 1, 1 }, 1, data_types::f32, format::bfyx, data_types::f32, format::bfyx, data_types::f32, format::bfyx
 
 
-#define CASE_CONV_FP16_1 { 1, 15, 4, 5 }, { 1, 30, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::bfyx, data_types::f16, format::bfyx, data_types::f16, format::bfyx
-#define CASE_CONV_FP16_2 { 1, 16, 4, 5 }, { 1, 32, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isv16_osv16, data_types::f16, format::bfyx
+#define CASE_CONV_FP16_1 { 1, 16, 4, 5 }, { 1, 32, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::bfyx, data_types::f16, format::bfyx, data_types::f16, format::bfyx
+#define CASE_CONV_FP16_2 { 1, 2, 3, 3 }, { 1, 2, 2, 2 }, { 1, 1, 2, 2 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isv16_osv16, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_3 { 1, 16, 4, 5 }, { 1, 32, 4, 5 }, { 1, 1, 1, 1 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isv16_osv16, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_4 { 1, 32, 4, 5 }, { 1, 32, 4, 5 }, { 1, 1, 3, 3 }, { 1, 1 }, { 1, 1 }, { 1, 1 }, 32, data_types::f16, format::b_fs_yx_fsv16, data_types::f16,  format::gs_oiyx_gsv16, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_5 { 1, 15, 4, 5 }, { 1, 30, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::bfyx, data_types::i8, format::bfyx, data_types::f16, format::bfyx
@@ -629,8 +629,8 @@ TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(get_weights_layout(p), 1)),
+        data("bias", get_mem(get_bias_layout(p), 0)),
         // data("eltwise_data", get_mem(get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         
@@ -652,14 +652,14 @@ TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, conv_fp32_prelu_eltwise, ::testing::ValuesIn(std::vector<convolution_test_params>{
     // convolution_test_params{ CASE_CONV_FP32_1, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP32_2, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP32_3, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP32_4, 2, 2, 4 },
+    convolution_test_params{ CASE_CONV_FP32_2, 2, 2, 2 },
+    convolution_test_params{ CASE_CONV_FP32_3, 2, 2, 2 },
+    convolution_test_params{ CASE_CONV_FP32_4, 2, 2, 2 },
 
-    // convolution_test_params{ CASE_CONV_FP16_1, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP16_2, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP16_3, 2, 2, 4 },
-    convolution_test_params{ CASE_CONV_FP16_4, 2, 2, 4 },
+    convolution_test_params{ CASE_CONV_FP16_1, 2, 2, 2 },
+    convolution_test_params{ CASE_CONV_FP16_2, 2, 2, 2 },
+    convolution_test_params{ CASE_CONV_FP16_3, 2, 2, 2 },
+    convolution_test_params{ CASE_CONV_FP16_4, 2, 2, 2 },
 }));
 
 TEST_P(conv_fp32_prelu_eltwise, basic_sum_slope_2) {

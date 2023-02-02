@@ -600,7 +600,7 @@ inline void print_primitive(network& net, const std::string& prim_id, bool forma
         auto a = net.get_output_values_to_float<T>(prim_id, max_cnt);
         auto b = net.get_output_layout(prim_id);
         for (size_t i = 0; i < a.size(); i++) {
-            std::cout << std::setw(6) << std::to_string(a[i]).substr(0, 5) << ' ';
+            std::cout << std::setw(7) << std::to_string(a[i]).substr(0, 6) << ' ';
             if (format_xy && (i + 1) % b.spatial(0) == 0)
                 std::cout << std::endl;
             if (format_xy && (i + 1) % (b.spatial(0) * b.spatial(1)) == 0)

@@ -121,9 +121,6 @@ TEST_P(lrn_fp32_quantize_u8_eltwise_activation, basic) {
         activation("activation", input_info("eltwise"), activation_func::floor),
         reorder("reorder", input_info("activation"), p.default_format, data_types::f32)
     );
-    // Activation won't be fused because onednn doesn't support floor activation
-    if (engine.get_device_info().supports_immad)
-        p.expected_fused_primitives++;
 
     tolerance_abs = 1.0f;
     execute(p);

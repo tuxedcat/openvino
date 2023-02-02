@@ -142,8 +142,14 @@ public:
         if (ptr->get_layout().data_type != type_to_data_type<T>::value)
             IE_THROW() << "target type " << data_type_traits::name(type_to_data_type<T>::value)
                        << " mismatched with actual type " << data_type_traits::name(ptr->get_layout().data_type);
-        for (size_t i = 0; i < std::min(max_cnt, ptr->get_layout().count()); i++)
-            ret.push_back(mem[i]);
+        if (!format::is_simple_data_format(ptr->get_layout().format)) {
+            // TODO: Warning Message
+            for (size_t i = 0; i < std::min(max_cnt, mem.size()); i++)
+                ret.push_back(mem[i]);
+        } else {
+            for (size_t i = 0; i < std::min(max_cnt, ptr->get_layout().count()); i++)
+                ret.push_back(mem[i]);
+        }
         return ret;
     }
     memory::ptr get_output_memory(const primitive_id& output_id);

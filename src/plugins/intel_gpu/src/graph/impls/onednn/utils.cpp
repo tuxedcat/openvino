@@ -172,6 +172,13 @@ void combine_bf_with_first_spatial_dim(cldnn::layout& l) {
     l.set_partial_shape(new_shape);
 }
 
+void combine_bf(cldnn::layout& l) {
+    auto s = l.get_shape();
+    s[1] *= s[0];
+    s.erase(s.begin());
+    l.set_partial_shape(s);
+}
+
 int64_t get_f_offset(cldnn::layout&& l, dnnl::memory::desc&& desc) {
     int64_t offset = 0;
     auto f_padding = l.data_padding.lower_size().feature[0];
