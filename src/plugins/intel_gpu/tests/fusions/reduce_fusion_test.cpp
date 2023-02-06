@@ -148,6 +148,9 @@ TEST_P(reduce_eltwise_activation_quantize, basic) {
         //          input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
         reorder("output_reorder", input_info("reduce"), p.default_format, data_types::f32)
     );
+    // cfg_not_fused.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{
+    //     { "reduce", { format::any, "reduce_ref", impl_types::ocl } },
+    // }));
 
     tolerance_abs = 1.f;
     execute(p);

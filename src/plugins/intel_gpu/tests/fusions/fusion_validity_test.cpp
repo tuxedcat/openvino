@@ -154,7 +154,7 @@ TEST_P(format_mismatch_onnx_fusing, single_fused_node) {
     ov::intel_gpu::ImplementationDesc ref_eltwise = { p.input_format, "" };
     cfg_not_fused.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{ { "eltwise_data", ref_eltwise } }));
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

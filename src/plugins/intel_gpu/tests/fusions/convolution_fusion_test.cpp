@@ -302,9 +302,9 @@ public:
 
 
 #define CASE_CONV_FP16_1 { 1, 16, 4, 5 }, { 1, 32, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::bfyx, data_types::f16, format::bfyx, data_types::f16, format::bfyx
-#define CASE_CONV_FP16_2 { 1, 2, 3, 3 }, { 1, 2, 2, 2 }, { 1, 1, 2, 2 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isv16_osv16, data_types::f16, format::bfyx
+#define CASE_CONV_FP16_2 { 1, 2, 3, 3 }, { 1, 2, 2, 2 }, { 1, 1, 2, 2 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isa8_osv8_isv2, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_3 { 1, 16, 4, 5 }, { 1, 32, 4, 5 }, { 1, 1, 1, 1 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::b_fs_yx_fsv16, data_types::f16, format::os_is_yx_isv16_osv16, data_types::f16, format::bfyx
-#define CASE_CONV_FP16_4 { 1, 32, 4, 5 }, { 1, 32, 4, 5 }, { 1, 1, 3, 3 }, { 1, 1 }, { 1, 1 }, { 1, 1 }, 32, data_types::f16, format::b_fs_yx_fsv16, data_types::f16,  format::gs_oiyx_gsv16, data_types::f16, format::bfyx
+#define CASE_CONV_FP16_4 { 1, 32, 4, 5 }, { 1, 32, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 32, data_types::f16, format::b_fs_yx_fsv16, data_types::f16,  format::gs_oiyx_gsv16, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_5 { 1, 15, 4, 5 }, { 1, 30, 2, 3 }, { 1, 1, 3, 3 }, { 1, 1 }, { 0, 0 }, { 1, 1 }, 1, data_types::f16, format::bfyx, data_types::i8, format::bfyx, data_types::f16, format::bfyx
 #define CASE_CONV_FP16_6 { 1, 16, 4, 5, 4 }, { 1, 16, 2, 3, 2 }, { 1, 1, 3, 3, 3 }, { 1, 1, 1 }, { 0, 0, 0 }, { 1, 1, 1 }, 1, data_types::f16, format::b_fs_zyx_fsv16, data_types::f16, format::os_is_zyx_isv16_osv16, data_types::f16, format::bfzyx
 #define CASE_CONV_FP16_7 { 1, 16, 4, 5, 4 }, { 1, 32, 2, 3, 2 }, { 1, 1, 3, 3, 3 }, { 1, 1, 1 }, { 0, 0, 0 }, { 1, 1, 1 }, 1, data_types::f16, format::b_fs_zyx_fsv16, data_types::f16, format::os_is_zyx_isv16_osv16, data_types::f16, format::bfzyx
@@ -623,30 +623,25 @@ INSTANTIATE_TEST_SUITE_P(fusings_gpu, conv_fp32_add_per_element_planar_const, ::
     convolution_test_params{ CASE_CONV_FP32_3, 3, 3, 4 },
 }));
 
-#include "intel_gpu/primitives/border.hpp"
 class conv_fp32_prelu_eltwise : public ConvFusingTest {};
 TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), 1)),
-        data("bias", get_mem(get_bias_layout(p), 0)),
-        // data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("bias", get_mem(get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         
         // data("slope_data", get_mem(get_per_channel_layout(p))),
         // activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
+
+        // data("eltwise_data", get_mem(get_output_layout(p))),
         // eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
-        
-        // eltwise("eltwise", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
-        
-        // border("border",input_info("conv_prim")),
-        // eltwise("eltwise", input_info("border"), input_info("eltwise_data"), eltwise_mode::sum),
-        
+
         reorder("reorder_bfyx", input_info("conv_prim"), p.default_format, data_types::f32)
     );
 
-    tolerance_abs = default_tolerance(p.data_type) * 2;
+    tolerance_abs = default_tolerance(p.data_type);
     execute(p);
 }
 
@@ -4144,7 +4139,7 @@ TEST_P(conv_after_permute_optimizing, basic) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = default_tolerance(p.default_type);
+    tolerance_abs = default_tolerance(p.default_type);
     execute(p);
 }
 
@@ -4172,7 +4167,7 @@ TEST_P(conv_before_permute_optimizing, basic) {
         reorder("reorder_bfyx", input_info("permute"), p.default_format, data_types::f32)
     );
 
-    tolerance = default_tolerance(p.default_type);
+    tolerance_abs = default_tolerance(p.default_type);
     execute(p);
 }
 
