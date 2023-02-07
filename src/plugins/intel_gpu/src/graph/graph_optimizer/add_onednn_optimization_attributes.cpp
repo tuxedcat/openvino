@@ -41,7 +41,6 @@ void add_onednn_optimization_attributes::run(program& p) {
                     }
                 }
             }
-
             node->init_onednn_primitive_attributes();
         }
     }
