@@ -86,9 +86,9 @@ public:
             p.expected_fused_primitives = p.expected_fused_primitives_onednn;
         cldnn::memory::ptr input_prim;
         if (min == max) {
-            input_prim = get_mem(get_input_layout(p));
+            input_prim = get_mem(engine, get_input_layout(p));
         } else {
-            input_prim = get_mem(get_input_layout(p), min, max);
+            input_prim = get_mem(engine, get_input_layout(p), min, max);
         }
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -126,7 +126,7 @@ public:
 class ConvReorderFusingTest : public BaseFusingTest<convolution_test_params> {
 public:
     void execute(convolution_test_params& p, std::map<std::string, std::vector<std::string>> expected_fused_primitives_ids = {}) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -154,7 +154,7 @@ public:
         if (engine.get_device_info().supports_immad)
             p.expected_fused_primitives = p.expected_fused_primitives_onednn;
 
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -188,7 +188,7 @@ public:
 class ConvFusingForceKernelTest : public BaseFusingTest<bc_force_kernel_params> {
     public:
     void execute(bc_force_kernel_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         ExecutionConfig config;
         config.set_property(ov::intel_gpu::optimize_data(true));
         ov::intel_gpu::ImplementationDesc conv_impl = { p.input_format, p.kernel_name };
@@ -232,7 +232,7 @@ public:
             return;
         p.expected_fused_primitives = p.expected_fused_primitives_onednn;
 
-        auto input_prim = p.data_type == data_types::u8 ? get_mem(get_input_layout(p), 0, 10) : get_mem(get_input_layout(p));
+        auto input_prim = p.data_type == data_types::u8 ? get_mem(engine, get_input_layout(p), 0, 10) : get_mem(engine, get_input_layout(p));
 
         auto impl_forcing = cfg_fused.get_property(ov::intel_gpu::force_implementations);
 
@@ -387,7 +387,7 @@ TEST_P(conv_fp32_reorder_fsv16_to_bfyx, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         reorder("reorder_fsv16", input_info("input"), format::b_fs_yx_fsv16, data_types::f32),
         convolution("conv_prim", input_info("reorder_fsv16"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_bfyx", input_info("conv_prim"), format::bfyx, data_types::f32)
@@ -422,8 +422,8 @@ TEST_P(conv_fp32_reorder_fsv16_to_bfyx_conv, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
         reorder("reorder_fsv16", input_info("input"), format::b_fs_yx_fsv16, data_types::f32),
         convolution("conv_prim", input_info("reorder_fsv16"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_bfyx", input_info("conv_prim"), format::bfyx, data_types::f32),
@@ -457,8 +457,8 @@ TEST_P(conv_fp32_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -486,9 +486,9 @@ TEST_P(conv_fp32_scale, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -517,8 +517,8 @@ TEST_P(conv_fp32_bias, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, std::vector<primitive_id>{}, p.groups, p.stride, p.pad, p.dilation),
         eltwise("add_bias", { input_info("conv_prim"), input_info("bias") }, eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("add_bias"), p.default_format, data_types::f32)
@@ -547,9 +547,9 @@ TEST_P(conv_fp32_double_bias, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias1", get_mem(get_bias_layout(p))),
-        data("bias2", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias1", get_mem(engine, get_bias_layout(p))),
+        data("bias2", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, std::vector<primitive_id>{}, p.groups, p.stride, p.pad, p.dilation),
         eltwise("add_bias1", { input_info("conv_prim"), input_info("bias1") }, eltwise_mode::sum),
         eltwise("add_bias2", { input_info("add_bias1"), input_info("bias2") }, eltwise_mode::sum),
@@ -579,8 +579,8 @@ TEST_P(conv_fp32_wrong_bias, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("non-bias", get_mem(eltw_data_layout)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("non-bias", get_mem(engine, eltw_data_layout)),
         convolution("conv_prim", input_info("input"), { "weights" }, std::vector<primitive_id>{}, p.groups, p.stride, p.pad, p.dilation),
         eltwise("add", { input_info("conv_prim"), input_info("non-bias") }, eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("add"), p.default_format, data_types::f32)
@@ -607,8 +607,8 @@ TEST_P(conv_fp32_add_per_element_planar_const, basic) {
     out_layout.format = format::bfyx;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("data", get_mem(out_layout)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("data", get_mem(engine, out_layout)),
         convolution("conv_prim", input_info("input"), { "weights" }, std::vector<primitive_id>{}, p.groups, p.stride, p.pad, p.dilation),
         eltwise("add", { input_info("conv_prim"), input_info("data") }, eltwise_mode::sum),
         permute("permute", input_info("add"), {3, 2, 1, 0}),
@@ -628,14 +628,14 @@ TEST_P(conv_fp32_prelu_eltwise, basic_sum) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         
-        // data("slope_data", get_mem(get_per_channel_layout(p))),
+        // data("slope_data", get_mem(engine, get_per_channel_layout(p))),
         // activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
 
-        // data("eltwise_data", get_mem(get_output_layout(p))),
+        // data("eltwise_data", get_mem(engine, get_output_layout(p))),
         // eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
 
         reorder("reorder_bfyx", input_info("conv_prim"), p.default_format, data_types::f32)
@@ -661,10 +661,10 @@ TEST_P(conv_fp32_prelu_eltwise, basic_sum_slope_2) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -679,10 +679,10 @@ TEST_P(conv_fp32_prelu_eltwise, basic_prod) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::prod),
@@ -697,10 +697,10 @@ TEST_P(conv_fp32_prelu_eltwise, basic_prod_slope_2) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::prod),
@@ -716,10 +716,10 @@ TEST_P(conv_fp32_prelu_eltwise, eltw_broadcast_sum) {
     tensor eltw_shape = p.default_format.spatial_num() == 2 ? tensor{ 1, 1, 1, 1 } : tensor{ 1, 1, 1, 1, 1 };
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -735,10 +735,10 @@ TEST_P(conv_fp32_prelu_eltwise, eltw_broadcast_sum_slope_2) {
     tensor eltw_shape = p.default_format.spatial_num() == 2 ? tensor{ 1, 1, 1, 1 } : tensor{ 1, 1, 1, 1, 1 };
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -754,10 +754,10 @@ TEST_P(conv_fp32_prelu_eltwise, eltw_broadcast_prod) {
     tensor eltw_shape = p.default_format.spatial_num() == 2 ? tensor{ 1, 1, 1, 1 } : tensor{ 1, 1, 1, 1, 1 };
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::prod),
@@ -773,10 +773,10 @@ TEST_P(conv_fp32_prelu_eltwise, eltw_broadcast_prod_slope_2) {
     tensor eltw_shape = p.default_format.spatial_num() == 2 ? tensor{ 1, 1, 1, 1 } : tensor{ 1, 1, 1, 1, 1 };
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::prod),
@@ -792,10 +792,10 @@ TEST_P(conv_fp32_prelu_eltwise, vector_ops) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -813,10 +813,10 @@ TEST_P(conv_fp32_prelu_eltwise, vector_ops_slope_2) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -835,10 +835,10 @@ TEST_P(conv_fp32_prelu_eltwise, vector_ops_mixed_types) {
     auto slope_type = p.default_type == data_types::f32 ? data_types::f16 : data_types::f32;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(layout{ slope_type, p.default_format, tensor{ 1, p.out_shape.feature[0], 1, 1 } })),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, layout{ slope_type, p.default_format, tensor{ 1, p.out_shape.feature[0], 1, 1 } })),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -857,10 +857,10 @@ TEST_P(conv_fp32_prelu_eltwise, vector_ops_mixed_types_slope_2) {
     auto slope_type = p.default_type == data_types::f32 ? data_types::f16 : data_types::f32;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(layout{ slope_type, p.input_format, tensor{ 1, p.out_shape.feature[0], p.out_shape.spatial[0], 1 } })),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, layout{ slope_type, p.input_format, tensor{ 1, p.out_shape.feature[0], p.out_shape.spatial[0], 1 } })),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -883,9 +883,9 @@ TEST_P(conv_fp32_multi_eltwise_2, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
         eltwise("eltwise2", input_info("eltwise1"), input_info("conv_prim"), eltwise_mode::prod),
@@ -918,9 +918,9 @@ TEST_P(conv_fp32_multi_eltwise_2_clamp, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise1_data", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise1_data", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1", input_info("conv_prim"), input_info("eltwise1_data"), eltwise_mode::sum),
         activation("activation", input_info("eltwise1"), activation_func::clamp, { 0.5f, 2.5f }),
@@ -954,11 +954,11 @@ TEST_P(conv_fp32_multi_eltwise_4_clamp, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise1_data", get_mem(get_output_layout(p))),
-        data("eltwise2_data", get_mem(get_output_layout(p))),
-        data("eltwise4_data", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise1_data", get_mem(engine, get_output_layout(p))),
+        data("eltwise2_data", get_mem(engine, get_output_layout(p))),
+        data("eltwise4_data", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1_add", input_info("conv_prim"), input_info("eltwise1_data"), eltwise_mode::sum),
         activation("activation", input_info("eltwise1_add"), activation_func::clamp, { 0.5f, 2.5f }),
@@ -993,11 +993,11 @@ TEST_P(conv_fp32_eltwise_fusing_extend_ops, pattern01_simple_sub) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
-        data("eltwise_data2", get_mem(get_output_layout(p))),
-        data("eltwise_data4", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data2", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data4", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1_sum", input_info("conv_prim"), input_info("eltwise_data1"), eltwise_mode::sum),
         eltwise("eltwise2_sub", input_info("conv_prim"), input_info("eltwise_data2"), eltwise_mode::sub),
@@ -1021,11 +1021,11 @@ TEST_P(conv_fp32_eltwise_fusing_extend_ops, pattern02_sub_scale) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
-        data("eltwise_data2", get_mem(get_output_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data2", get_mem(engine, get_output_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1_sum", input_info("conv_prim"), input_info("eltwise_data1"), eltwise_mode::sum),
         eltwise("eltwise2_sub", input_info("conv_prim"), input_info("eltwise1_sum"), eltwise_mode::sub),
@@ -1049,12 +1049,12 @@ TEST_P(conv_fp32_eltwise_fusing_extend_ops, pattern03_sub_div) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
-        data("eltwise_data2", get_mem(get_output_layout(p), 1.0f)),
-        data("eltwise_data3", get_mem(get_output_layout(p))),
-        data("eltwise_data4", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data2", get_mem(engine, get_output_layout(p), 1.0f)),
+        data("eltwise_data3", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data4", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1_sum", input_info("conv_prim"), input_info("eltwise_data1"), eltwise_mode::sum),
         eltwise("eltwise2_div", input_info("eltwise1_sum"), input_info("eltwise_data2"), eltwise_mode::div),
@@ -1089,10 +1089,10 @@ TEST_P(conv_fp32_eltwise_fusing_2conv, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("bias0", get_mem(get_bias_layout(p))),
-        data("weights0", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("bias0", get_mem(engine, get_bias_layout(p))),
+        data("weights0", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim0", input_info("input"), { "weights0" }, { "bias0" }, p.groups, p.stride, p.pad, p.dilation),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1", input_info("conv_prim0"), input_info("conv_prim"), eltwise_mode::sum),
@@ -1128,10 +1128,10 @@ TEST_P(conv_fp32_multi_eltwise_3_fusing, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
-        data("eltwise_data2", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data2", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1", input_info("conv_prim"), input_info("eltwise_data1"), eltwise_mode::sum),
         eltwise("eltwise2", input_info("conv_prim"), input_info("eltwise_data2"), eltwise_mode::sum),
@@ -1162,13 +1162,13 @@ TEST_P(conv_fp32_multi_eltwise_quantization, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -1197,10 +1197,10 @@ TEST_P(conv_fp32_multi_eltwise_concat, basic) {
     data_types output_type = data_types::i8;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data1", get_mem(get_output_layout(p))),
-        data("eltwise_data2", get_mem(get_output_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data1", get_mem(engine, get_output_layout(p))),
+        data("eltwise_data2", get_mem(engine, get_output_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise1", input_info("conv_prim"), input_info("eltwise_data1"), eltwise_mode::sum),
         eltwise("eltwise2", input_info("conv_prim"), input_info("eltwise_data2"), eltwise_mode::sum),
@@ -1234,9 +1234,9 @@ TEST_P(conv_fp32_eltwise_b_fs_zyx_fsv16, vector_ops) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
@@ -1254,8 +1254,8 @@ TEST_P(conv_fp32_swish, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("sigmoid", input_info("conv_prim"), activation_func::logistic),
         eltwise("mul", { input_info("conv_prim"), input_info("sigmoid") }, eltwise_mode::prod),
@@ -1283,13 +1283,13 @@ TEST_P(conv_fp32_eltwise_b_fs_zyx_fsv16, splitted_vector_ops) {
 
     std::vector<std::string> weights_idx;
     for (size_t w = 0; w < p.groups; w++) {
-        create_topologies(data("weights" + std::to_string(w), get_mem(get_weights_layout(p))));
+        create_topologies(data("weights" + std::to_string(w), get_mem(engine, get_weights_layout(p))));
         weights_idx.push_back(("weights" + std::to_string(w)));
     }
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), weights_idx, {}, 1, p.stride, p.pad, p.dilation),
         eltwise("eltwise", input_info("conv_prim"), input_info("eltwise_data"), eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("eltwise"), p.default_format, data_types::f32)
@@ -1325,12 +1325,12 @@ TEST_P(conv_fp32_quantize_u8_first_conv, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         reorder("reordered_input", input_info("input"), format::b_fs_yx_fsv16, p.data_type),
         convolution("conv_prim", input_info("reordered_input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
@@ -1351,12 +1351,12 @@ TEST_P(conv_fp32_quantize_u8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -1381,13 +1381,13 @@ TEST_P(conv_fp32_scale_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("scale"), input_info("in_lo"), input_info("in_hi"),
@@ -1415,13 +1415,13 @@ TEST_P(conv_fp32_scale_activation_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -1448,14 +1448,14 @@ TEST_P(conv_fp32_scale_activation_quantize_u8_eltwise_fp32, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -1483,14 +1483,14 @@ TEST_P(conv_fp32_scale_activation_quantize_i8_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), "slope_data", activation_func::relu_negative_slope),
@@ -1518,18 +1518,18 @@ TEST_P(conv_fp32_scale_activation_quantize_i8_eltwise_fp32_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_lo1", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("in_hi1", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_lo1", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("eltwise_data", get_mem(layout{ data_types::i8, p.input_format, p.out_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_lo1", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("in_hi1", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("eltwise_data", get_mem(engine, layout{ data_types::i8, p.input_format, p.out_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -1555,9 +1555,9 @@ TEST_P(conv_fp32_activation_eltwise_in_u8_fp32, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(layout{ data_types::i8, p.input_format, p.out_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ data_types::i8, p.input_format, p.out_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::relu_negative_slope),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f32),
@@ -1586,9 +1586,9 @@ TEST_P(conv_fp32_activation_eltwise_diff_sizes, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::relu_negative_slope),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f32),
@@ -1619,8 +1619,8 @@ TEST_P(conv_fp32_group_conv_eltwise_sum, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, {}, p.groups, p.stride, p.pad, p.dilation, p.out_shape, p.data_type, true),
         eltwise("sum", { input_info("conv_prim"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f32),
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
@@ -1642,9 +1642,9 @@ TEST_P(conv_swap_xy_with_eltwise_diff_sizes, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::relu_negative_slope),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f16),
@@ -1673,18 +1673,18 @@ TEST_P(conv_scale_activation_eltwise_fp32_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
-        data("scale_data", get_mem(get_per_channel_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p))),
         eltwise("scale", { input_info("conv"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation", input_info("scale"), activation_func::hyperbolic_tan),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
         eltwise("eltw", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f32),
-        data("in_low", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(get_single_element_layout(p), -127, 127)),
-        data("out_high", get_mem(get_single_element_layout(p), -127, 127)),
+        data("in_low", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(engine, get_single_element_layout(p), -127, 127)),
+        data("out_high", get_mem(engine, get_single_element_layout(p), -127, 127)),
         quantize("quant", input_info("eltw"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 255, data_types::i8),
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
@@ -1714,9 +1714,9 @@ TEST_P(conv_int8_scale, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -1730,9 +1730,9 @@ TEST_P(conv_int8_scale, fp16_scale_out) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -1769,9 +1769,9 @@ TEST_P(conv_int8_eltwise, fp16_eltwise_out) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -1808,10 +1808,10 @@ TEST_P(conv_int8_scale_shift_swish, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
-        data("shift_data", get_mem(get_per_channel_layout(p), 1)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("shift_data", get_mem(engine, get_per_channel_layout(p), 1)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale0", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         eltwise("scale1", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
@@ -1854,10 +1854,10 @@ TEST_P(conv_int8_prelu_eltwise, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -1872,10 +1872,10 @@ TEST_P(conv_int8_prelu_eltwise, basic_slope_2) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -1890,10 +1890,10 @@ TEST_P(conv_int8_prelu_eltwise, fsv16) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -1916,10 +1916,10 @@ TEST_P(conv_int8_prelu_eltwise, fsv16_slope_2) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -1969,13 +1969,13 @@ TEST_P(conv_int8_activation_eltwise_quantize, fsv16) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::negative),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -2000,13 +2000,13 @@ TEST_P(conv_int8_activation_eltwise_quantize, fsv32) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::negative),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -2047,8 +2047,8 @@ TEST_P(conv_int8_activation, fsv16) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::negative),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -2075,9 +2075,9 @@ TEST_P(conv_int8_activation_eltwise, fsv16) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::negative),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -2100,9 +2100,9 @@ TEST_P(conv_int8_activation_eltwise, fsv32) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::negative),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -2141,12 +2141,12 @@ TEST_P(conv_int8_quantize_u8, per_channel) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -2161,12 +2161,12 @@ TEST_P(conv_int8_quantize_u8, per_tensor) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_single_element_layout(p), -10)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), -10)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -2205,13 +2205,13 @@ TEST_P(conv_int8_scale_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("scale"), input_info("in_lo"), input_info("in_hi"),
@@ -2256,13 +2256,13 @@ TEST_P(conv_int8_scale_quantize_i8_conv_b_fs_yx_fsv4_int8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("scale"), input_info("in_lo"), input_info("in_hi"),
@@ -2285,12 +2285,12 @@ TEST_P(conv_int8_relu_quantize, i8) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("relu", input_info("conv_prim"), activation_func::relu),
         quantize("quantize", input_info("relu"), input_info("in_lo"), input_info("in_hi"),
@@ -2308,12 +2308,12 @@ TEST_P(conv_int8_relu_quantize, u8) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("relu", input_info("conv_prim"), activation_func::relu),
         quantize("quantize", input_info("relu"), input_info("in_lo"), input_info("in_hi"),
@@ -2352,13 +2352,13 @@ TEST_P(conv_int8_scale_activation_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -2398,14 +2398,14 @@ TEST_P(conv_int8_scale_activation_quantize_i8_eltwise_fp32, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -2446,14 +2446,14 @@ TEST_P(conv_int8_scale_activation_quantize_i8_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), "slope_data", activation_func::relu_negative_slope),
@@ -2496,18 +2496,18 @@ TEST_P(conv_int8_scale_activation_quantize_i8_eltwise_fp32_quantize_i8, DISABLED
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_lo1", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("in_hi1", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_lo1", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("eltwise_data", get_mem(layout{ data_types::i8, p.input_format, p.out_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_lo1", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("in_hi1", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("eltwise_data", get_mem(engine, layout{ data_types::i8, p.input_format, p.out_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), activation_func::exp),
@@ -2550,19 +2550,19 @@ TEST_P(conv_int8_scale_prelu_quantize_i8_eltwise_fp32_quantize_i8_vec, vector_op
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_lo1", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("in_hi1", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_lo1", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("slope_data", get_mem(get_per_channel_layout(p))),
-        data("eltwise_data", get_mem(layout{ data_types::i8, format::b_fs_yx_fsv4, p.out_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_lo1", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("in_hi1", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ data_types::i8, format::b_fs_yx_fsv4, p.out_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), "slope_data", activation_func::relu_negative_slope),
@@ -2585,19 +2585,19 @@ TEST_P(conv_int8_scale_prelu_quantize_i8_eltwise_fp32_quantize_i8_vec, vector_op
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_lo1", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("in_hi1", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_lo1", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
-        data("slope_data", get_mem(layout{ data_types::f16, p.default_format, tensor{ 1, p.out_shape.feature[0], 1, 1 } })),
-        data("eltwise_data", get_mem(layout{ data_types::u8, format::b_fs_yx_fsv4, p.out_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_lo1", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("in_hi1", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()/255)),
+        data("slope_data", get_mem(engine, layout{ data_types::f16, p.default_format, tensor{ 1, p.out_shape.feature[0], 1, 1 } })),
+        data("eltwise_data", get_mem(engine, layout{ data_types::u8, format::b_fs_yx_fsv4, p.out_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation_scale", input_info("scale"), "slope_data", activation_func::relu_negative_slope),
@@ -2631,9 +2631,9 @@ TEST_P(conv_int8_asymmetric_weights, basic) {
                                            get_weights_layout(p);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(weights_layout)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("w_zp", get_mem(get_weights_zp_layout(p), 1, 127)),
+        data("weights", get_mem(engine, weights_layout)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("w_zp", get_mem(engine, get_weights_zp_layout(p), 1, 127)),
         eltwise("w_sub", { input_info("weights"), input_info("w_zp") }, eltwise_mode::sub, data_types::f32),
         convolution("conv_prim", input_info("input"), { "w_sub" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, p.out_shape, data_types::f32, false),
         reorder("reorder_bfyx", input_info("conv_prim"), p.default_format, data_types::f32)
@@ -2641,7 +2641,7 @@ TEST_P(conv_int8_asymmetric_weights, basic) {
 
     tolerance_abs = 1.f;
 
-    auto input_prim = get_mem(get_input_layout(p));
+    auto input_prim = get_mem(engine, get_input_layout(p));
     network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
     network network_fused(this->engine, this->topology_fused, cfg_fused);
     network_fused.set_input_data("input", input_prim);
@@ -2701,9 +2701,9 @@ TEST_P(conv_int8_asymmetric_data, basic) {
     }
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(weights_layout)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("a_zp", get_mem(get_activations_zp_layout(p), 1, 127)),
+        data("weights", get_mem(engine, weights_layout)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("a_zp", get_mem(engine, get_activations_zp_layout(p), 1, 127)),
         eltwise("a_sub", { input_info("input"), input_info("a_zp") }, eltwise_mode::sub, data_types::f32),
         convolution("conv_prim", input_info("a_sub"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, p.out_shape, data_types::f32, false),
         reorder("reorder_bfyx", input_info("conv_prim"), p.default_format, data_types::f32)
@@ -2711,7 +2711,7 @@ TEST_P(conv_int8_asymmetric_data, basic) {
 
     tolerance_abs = 1.f;
 
-    auto input_prim = get_mem(get_input_layout(p));
+    auto input_prim = get_mem(engine, get_input_layout(p));
     network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
     network network_fused(this->engine, this->topology_fused, cfg_fused);
     network_fused.set_input_data("input", input_prim);
@@ -2771,10 +2771,10 @@ TEST_P(conv_int8_asymmetric_data_and_weights, basic) {
                           get_weights_layout(p);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(weights_layout)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("a_zp", get_mem(get_activations_zp_layout(p), 1, 127)),
-        data("w_zp", get_mem(get_weights_zp_layout(p), 1, 127)),
+        data("weights", get_mem(engine, weights_layout)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("a_zp", get_mem(engine, get_activations_zp_layout(p), 1, 127)),
+        data("w_zp", get_mem(engine, get_weights_zp_layout(p), 1, 127)),
         eltwise("a_sub", { input_info("input"), input_info("a_zp") }, eltwise_mode::sub, data_types::f32),
         eltwise("w_sub", { input_info("weights"), input_info("w_zp") }, eltwise_mode::sub, data_types::f32),
         convolution("conv_prim", input_info("a_sub"), { "w_sub" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, p.out_shape, data_types::f32, false),
@@ -2783,7 +2783,7 @@ TEST_P(conv_int8_asymmetric_data_and_weights, basic) {
 
     tolerance_abs = 1.f;
 
-    auto input_prim = get_mem(get_input_layout(p));
+    auto input_prim = get_mem(engine, get_input_layout(p));
     network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
     network network_fused(this->engine, this->topology_fused, cfg_fused);
     network_fused.set_input_data("input", input_prim);
@@ -2841,9 +2841,9 @@ TEST_P(conv_i8_activation_eltwise_diff_sizes, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, data_types::f32),
@@ -2871,8 +2871,8 @@ TEST_P(conv_fp16_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -2893,9 +2893,9 @@ TEST_P(conv_fp16_scale, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -2924,7 +2924,7 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_basic, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
         reorder("reorder_fsv32", input_info("input"), format::fs_b_yx_fsv32, data_types::f32),
         convolution("conv_prim", input_info("reorder_fsv32"), { "weights" }, 1, { 1, 1 }, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
@@ -2950,7 +2950,7 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_mean, have_mean) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         data("mul", mul),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
         reorder("reorder_fsv32", input_info("input"), format::fs_b_yx_fsv32, data_types::f32, "mul", reorder_mean_mode::mul),
         convolution("conv_prim", input_info("reorder_fsv32"), { "weights" }, 1, { 1, 1 }, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs)
@@ -2982,8 +2982,8 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_subtract, have_subtract_per_feature)
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_fsv32", input_info("conv_prim"), format::fs_b_yx_fsv32, data_types::f32, values_to_subtract),
         convolution("conv_output", input_info("reorder_fsv32"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, p.pad, p.dilation)
@@ -3009,9 +3009,9 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_fused_activation, have_fused_activat
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
-        data("actv_params", get_mem(get_per_channel_layout(p), -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
+        data("actv_params", get_mem(engine, get_per_channel_layout(p), -127, 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_fsv32", input_info("conv_prim"), format::fs_b_yx_fsv32, data_types::f32),
         activation("activation_quantize", input_info("reorder_fsv32"), "actv_params", activation_func::relu_negative_slope),
@@ -3041,8 +3041,8 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_fused_through_activation, have_fused
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_fsv32", input_info("conv_prim"), format::fs_b_yx_fsv32, data_types::f32),
         activation("activation_quantize", input_info("reorder_fsv32"), activation_func::relu),
@@ -3072,8 +3072,8 @@ TEST_P(conv_fp32_reorder_bfyx_to_fsv32_conv_data_padding, have_data_padding) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad, p.dilation),
         reorder("reorder_fsv32", input_info("conv_prim"), layout(data_types::f32, format::fs_b_yx_fsv32, dw_tensor, padding{ { 0, 0, 1, 1 }, 0 })),
         convolution("conv_prim2", input_info("reorder_fsv32"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, p.pad, p.dilation),
@@ -3096,10 +3096,10 @@ TEST_P(conv_fp16_prelu_onednn, basic_activation_eltwise) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("slope_data", get_mem(get_prelu_slope_layout(p))),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("slope_data", get_mem(engine, get_prelu_slope_layout(p))),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), "slope_data", activation_func::relu_negative_slope),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -3123,9 +3123,9 @@ TEST_P(conv_int8_eltwise_onednn, u8_eltwise_sum_out) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), 0, 2)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("shift_data", get_mem(shift_layout)),
+        data("weights", get_mem(engine, get_weights_layout(p), 0, 2)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("shift_data", get_mem(engine, shift_layout)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("shift", { input_info("conv_prim"), input_info("shift_data") }, eltwise_mode::sum, data_types::f32),
         reorder("reorder_bfyx", input_info("shift"), p.default_format, data_types::f32)
@@ -3140,9 +3140,9 @@ TEST_P(conv_int8_eltwise_onednn, u8_eltwise_prod_out) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -2, 2)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count()) ),
+        data("weights", get_mem(engine, get_weights_layout(p), -2, 2)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count()) ),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::u8),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -3183,8 +3183,8 @@ TEST_P(conv_fp32_activation_abs_onednn, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -3206,8 +3206,8 @@ TEST_P(conv_fp32_activation_mish_onednn, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::mish),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -3229,8 +3229,8 @@ TEST_P(conv_fp32_activation_swish_onednn, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::swish),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -3252,8 +3252,8 @@ TEST_P(conv_fp32_activation_hswish_onednn, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::hswish),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -3275,8 +3275,8 @@ TEST_P(conv_fp32_activation_exp_onednn, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::exp),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -3298,12 +3298,12 @@ TEST_P(conv_int8_quantize_u8_onednn, per_channel) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -2, 2)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), -10, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 0, 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p), -2, 2)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), -10, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 0, 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -3318,12 +3318,12 @@ TEST_P(conv_int8_quantize_u8_onednn, per_tensor) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -2, 2)),
-        data("bias", get_mem(get_bias_layout(p), 0)),
-        data("in_lo", get_mem(get_single_element_layout(p), -10)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p), -2, 2)),
+        data("bias", get_mem(engine, get_bias_layout(p), 0)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), -10)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -3350,13 +3350,13 @@ TEST_P(conv_int8_activation_eltwise_quantize_onednn, bsv32_fsv32) {
     eltwise_layout.format = format::bs_fs_yx_bsv32_fsv32;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -1, 1)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(eltwise_layout, -1, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p), -1, 1)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, eltwise_layout, -1, 1)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         eltwise("eltwise", input_info("activation"), input_info("eltwise_data"), eltwise_mode::sum),
@@ -3401,10 +3401,10 @@ TEST_P(conv_int8_scale_shift_swish_onednn, bsv32_fsv32) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -1, 1)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
-        data("shift_data", get_mem(get_per_channel_layout(p), 1)),
+        data("weights", get_mem(engine, get_weights_layout(p), -1, 1)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("shift_data", get_mem(engine, get_per_channel_layout(p), 1)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("scale0", { input_info("conv_prim"), input_info("scale_data") }, eltwise_mode::sum),
         eltwise("shift0", { input_info("scale0"), input_info("shift_data") }, eltwise_mode::sum),
@@ -3444,10 +3444,10 @@ TEST_P(conv_int8_eltwise_scale_onednn, u8_eltwise_prod_out_reuse) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p), -2, 2)),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("sum_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(engine, get_weights_layout(p), -2, 2)),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("sum_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, p.out_shape, data_types::f32, false),
         eltwise("sum", { input_info("conv_prim"), input_info("sum_data") }, eltwise_mode::sum, data_types::f32),
         eltwise("scale", { input_info("sum"), input_info("scale_data") }, eltwise_mode::prod, data_types::f32),
@@ -3456,7 +3456,7 @@ TEST_P(conv_int8_eltwise_scale_onednn, u8_eltwise_prod_out_reuse) {
 
     tolerance_abs = 1.f;
 
-    auto input_prim = get_mem(get_input_layout(p));
+    auto input_prim = get_mem(engine, get_input_layout(p));
 
     auto forcing_format = p.input_format;
     ov::intel_gpu::ImplementationDesc conv_impl = { forcing_format, "", impl_types::onednn };
@@ -3492,12 +3492,12 @@ TEST_P(post_ops_optimizations_onednn_eltw_linear_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_single_element_layout(p), -10)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), -10)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
@@ -3544,12 +3544,12 @@ TEST_P(post_ops_optimizations_onednn_eltw_non_linear_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_single_element_layout(p), -10)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 512)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), -10)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 512)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::f32),
@@ -3596,12 +3596,12 @@ TEST_P(post_ops_optimizations_onednn_binary_add_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -3648,13 +3648,13 @@ TEST_P(post_ops_optimizations_onednn_binary_mul_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("eltwise_data", get_mem(get_per_channel_layout(p), -1, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 512)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("eltwise_data", get_mem(engine, get_per_channel_layout(p), -1, 1)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 512)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         eltwise("eltwise", { input_info("conv_prim"), input_info("eltwise_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
@@ -3700,12 +3700,12 @@ TEST_P(post_ops_optimizations_onednn_oscale_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 512)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 512)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -3750,13 +3750,13 @@ TEST_P(post_ops_optimizations_onednn_eltw_any_sum_eltw_linear, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::relu_negative_slope),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum),
@@ -3801,12 +3801,12 @@ TEST_P(post_ops_optimizations_input_range, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_single_element_layout(p), -10)),
-        data("in_hi", get_mem(get_single_element_layout(p), 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 127)),
-        data("out_hi", get_mem(get_single_element_layout(p), -128)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), -10)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), -128)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         quantize("quantize", input_info("conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
@@ -3871,7 +3871,7 @@ public:
     void execute(convolution_eltw_sum_test_params& p) {
         if (!engine.get_device_info().supports_immad)
             return;
-        auto input_prim = p.data_type == data_types::u8 ? get_mem(get_input_layout(p), 0, 10) : get_mem(get_input_layout(p));
+        auto input_prim = p.data_type == data_types::u8 ? get_mem(engine, get_input_layout(p), 0, 10) : get_mem(engine, get_input_layout(p));
 
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -3912,13 +3912,13 @@ TEST_P(onednn_binary_add_full_tensor, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo1", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi1", get_mem(get_single_element_layout(p), 100)),
-        data("out_lo1", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 100)),
-        data("eltwise_data", get_mem(layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo1", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi1", get_mem(engine, get_single_element_layout(p), 100)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 100)),
+        data("eltwise_data", get_mem(engine, layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, false),
         activation("activation", input_info("conv_prim"), activation_func::hyperbolic_tan),
         quantize("quantize1", input_info("activation"), input_info("in_lo1"), input_info("in_hi1"),
@@ -3951,15 +3951,15 @@ TEST_P(onednn_multiple_binary_add_full_tensor, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo1", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi1", get_mem(get_single_element_layout(p), 100)),
-        data("out_lo1", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 100)),
-        data("eltwise_data", get_mem(layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
-        data("eltwise_data1", get_mem(layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
-        data("eltwise_data2", get_mem(layout{ p.eltw_type, format::bfyx, tensor{ 1, p.out_shape.feature[0], 1, 1 } }, 0, 100)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo1", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi1", get_mem(engine, get_single_element_layout(p), 100)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 100)),
+        data("eltwise_data", get_mem(engine, layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
+        data("eltwise_data1", get_mem(engine, layout{ p.eltw_type, p.eltw_format, p.out_shape }, 0, 100)),
+        data("eltwise_data2", get_mem(engine, layout{ p.eltw_type, format::bfyx, tensor{ 1, p.out_shape.feature[0], 1, 1 } }, 0, 100)),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation, false),
         activation("activation", input_info("conv_prim"), activation_func::hyperbolic_tan),
         quantize("quantize1", input_info("activation"), input_info("in_lo1"), input_info("in_hi1"),
@@ -4002,7 +4002,7 @@ struct implicit_crop_concat_convolution_test_params {
 class ImplicitCropConcatTestOneDNN: public BaseFusingTest<implicit_crop_concat_convolution_test_params> {
 public:
     void execute(implicit_crop_concat_convolution_test_params& p) {
-        auto input_prim = p.data_type == data_types::u8 ? get_mem(get_input_layout(p), 0, 10) : get_mem(get_input_layout(p));
+        auto input_prim = p.data_type == data_types::u8 ? get_mem(engine, get_input_layout(p), 0, 10) : get_mem(engine, get_input_layout(p));
 
         cfg_not_fused = cfg_fused;
         // ov::intel_gpu::ImplementationDesc quantize_impl = { p.output_format, "quantize_gpu_ref", impl_types::ocl };
@@ -4042,23 +4042,23 @@ TEST_P(implicit_crop_concat_bfyx_input_tensor, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
 
-        data("in_lo1", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi1", get_mem(get_single_element_layout(p), 100)),
-        data("out_lo1", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi1", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo1", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi1", get_mem(engine, get_single_element_layout(p), 100)),
+        data("out_lo1", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi1", get_mem(engine, get_single_element_layout(p), 127)),
 
-        data("in_lo2", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi2", get_mem(get_single_element_layout(p), 100)),
-        data("out_lo2", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi2", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo2", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi2", get_mem(engine, get_single_element_layout(p), 100)),
+        data("out_lo2", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi2", get_mem(engine, get_single_element_layout(p), 127)),
 
-        data("in_lo3", get_mem(get_single_element_layout(p), 0)),
-        data("in_hi3", get_mem(get_single_element_layout(p), 100)),
-        data("out_lo3", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi3", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo3", get_mem(engine, get_single_element_layout(p), 0)),
+        data("in_hi3", get_mem(engine, get_single_element_layout(p), 100)),
+        data("out_lo3", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi3", get_mem(engine, get_single_element_layout(p), 127)),
 
         crop("crop1", input_info("input"), crop_output, crop_offset1),
         quantize("quantize1", input_info("crop1"), input_info("in_lo1"), input_info("in_hi1"),
@@ -4094,7 +4094,7 @@ public:
 
         p.expected_fused_primitives = p.expected_fused_primitives_onednn;
 
-        cldnn::memory::ptr input_prim = get_mem(get_input_layout(p));
+        cldnn::memory::ptr input_prim = get_mem(engine, get_input_layout(p));
         cfg_fused.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
         cfg_not_fused.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
 
@@ -4159,8 +4159,8 @@ TEST_P(conv_after_permute_optimizing, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(weights_layout)),
-        data("bias", get_mem(bias_layout)),
+        data("weights", get_mem(engine, weights_layout)),
+        data("bias", get_mem(engine, bias_layout)),
         permute("permute", input_info("input"), {0, 3, 1, 2}),
         convolution("conv_prim", input_info("permute"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
@@ -4187,8 +4187,8 @@ TEST_P(conv_before_permute_optimizing, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         convolution("conv_prim", input_info("input"), { "weights" }, { "bias" }, p.groups, p.stride, p.pad, p.dilation),
         activation("activation", input_info("conv_prim"), activation_func::abs),
         permute("permute", input_info("activation"), {0, 2, 3, 1}),

@@ -34,7 +34,7 @@ class ResamplePrimitiveFusingTest : public ::BaseFusingTest<resample_test_params
 public:
 
     void execute(resample_test_params& p, std::map<std::string, std::vector<std::string>> expected_fused_primitives_ids = {}) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -89,10 +89,10 @@ TEST_P(resample_quantize, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         resample("resample_prim", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
         quantize("quantize", input_info("resample_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -130,8 +130,8 @@ TEST_P(resample_scale_activation_eltwise, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p), -10, 10)),
-        data("eltwise_data", get_mem(get_output_layout(p), -10, 10)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p), -10, 10)),
         resample("resample_prim", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
         eltwise("scale", { input_info("resample_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         activation("activation", input_info("scale"), activation_func::abs),
@@ -177,17 +177,17 @@ TEST_P(resample_quantize_concat, along_f) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         resample("resample1", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
-        data("in_lo_1", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi_1", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo_1", get_mem(get_single_element_layout(p), -128)),
-        data("out_hi_1", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo_1", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi_1", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo_1", get_mem(engine, get_single_element_layout(p), -128)),
+        data("out_hi_1", get_mem(engine, get_single_element_layout(p), 127)),
         quantize("quant1", input_info("resample1"), input_info("in_lo_1"), input_info("in_hi_1"),
                  input_info("out_lo_1"), input_info("out_hi_1"), 256, data_types::i8),
         resample("resample2", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
-        data("in_lo_2", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi_2", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo_2", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi_2", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo_2", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi_2", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo_2", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi_2", get_mem(engine, get_single_element_layout(p), 127)),
         quantize("quant2", input_info("resample2"), input_info("in_lo_2"), input_info("in_hi_2"),
                  input_info("out_lo_2"), input_info("out_hi_2"), 255, data_types::i8),
         concatenation("concat", { input_info("quant1"), input_info("quant2") }, 1),
@@ -226,13 +226,13 @@ TEST_P(resample_eltwise_concat, along_f) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         resample("resample1", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
-        data("eltwise1_shift", get_mem(get_per_channel_layout(p), -10, 10)),
-        data("eltwise1_scale", get_mem(get_per_channel_layout(p), -10, 10)),
+        data("eltwise1_shift", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("eltwise1_scale", get_mem(engine, get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise1_bias", { input_info("resample1"), input_info("eltwise1_shift") }, eltwise_mode::sum),
         eltwise("eltwise1", { input_info("eltwise1_bias"), input_info("eltwise1_scale") }, eltwise_mode::prod),
         resample("resample2", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
-        data("eltwise2_shift", get_mem(get_per_channel_layout(p), -10, 10)),
-        data("eltwise2_scale", get_mem(get_per_channel_layout(p), -10, 10)),
+        data("eltwise2_shift", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("eltwise2_scale", get_mem(engine, get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise2_bias", { input_info("resample2"), input_info("eltwise2_shift") }, eltwise_mode::sum),
         eltwise("eltwise2", { input_info("eltwise2_bias"), input_info("eltwise2_scale") }, eltwise_mode::prod),
         concatenation("concat", { input_info("eltwise1"), input_info("eltwise2") }, 1),
@@ -280,7 +280,7 @@ TEST_P(resample_eltwise_fusing_through, reshape) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(layout{ p.default_type, p.default_format, tensor{ 1, 1, 1, 1 } })),
+        data("eltwise_data", get_mem(engine, layout{ p.default_type, p.default_format, tensor{ 1, 1, 1, 1 } })),
         resample("resample_prim", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
         reshape("reshape", input_info("resample_prim"), reshape_shape),
         eltwise("eltwise", input_info("reshape"), input_info("eltwise_data"), eltwise_mode::prod),
@@ -324,7 +324,7 @@ TEST_P(resample_eltwise_fusing_through_not_allowed, reshape_two_users) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(layout{ p.default_type, p.default_format, tensor{ 1, 1, 1, 1 } })),
+        data("eltwise_data", get_mem(engine, layout{ p.default_type, p.default_format, tensor{ 1, 1, 1, 1 } })),
         resample("resample_prim", input_info("input"), p.out_shape, p.in_shape.feature[0], p.type),
         reshape("reshape", input_info("resample_prim"), reshape_shape),
         eltwise("eltwise", input_info("reshape"), input_info("eltwise_data"), eltwise_mode::prod),

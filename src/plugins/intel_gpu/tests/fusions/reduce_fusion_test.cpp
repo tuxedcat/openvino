@@ -35,7 +35,7 @@ struct reduce_test_params {
 class ReduceFusingTest : public ::BaseFusingTest<reduce_test_params> {
 public:
     void execute(reduce_test_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
 
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -136,11 +136,11 @@ TEST_P(reduce_eltwise_activation_quantize, basic) {
     update_out_shape(p);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
         eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
         activation("activation", input_info("eltwise"), activation_func::relu),
@@ -231,11 +231,11 @@ TEST_P(reduce_eltwise_activation_quantize, per_channel) {
     update_out_shape(p);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
         eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
         activation("activation", input_info("eltwise"), activation_func::relu),
@@ -252,7 +252,7 @@ TEST_P(reduce_scale_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_single_element_layout(p), -0.125f)),
+        data("scale_data", get_mem(engine, get_single_element_layout(p), -0.125f)),
         reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
         eltwise("scale", { input_info("reduce"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation", input_info("scale"), activation_func::cos),
@@ -270,7 +270,7 @@ TEST_P(reduce_scale_activation, per_channel) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p), -0.125f)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), -0.125f)),
         reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
         eltwise("scale", { input_info("reduce"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation", input_info("scale"), activation_func::cos),

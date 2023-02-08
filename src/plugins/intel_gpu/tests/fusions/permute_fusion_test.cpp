@@ -46,7 +46,7 @@ class PermuteFusingTest : public ::BaseFusingTest<permute_params> {
 public:
 
     void execute(permute_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -68,7 +68,7 @@ class PermuteReorderFusingTest : public ::BaseFusingTest<permute_reorder_params>
 public:
 
     void execute(permute_reorder_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -163,8 +163,8 @@ TEST_P(permute_activation_scale_eltwise, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.out_shape })),
-        data("scale_data", get_mem(get_per_channel_layout(p), 5e-1f)),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.out_shape })),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 5e-1f)),
         permute("permute", input_info("input"), p.permute_order),
         eltwise("scale", { input_info("permute"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("actv", input_info("scale"), activation_func::relu),
@@ -256,10 +256,10 @@ TEST_P(permute_quant_u8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         permute("permute", input_info("input"), p.permute_order),
         quantize("quant", input_info("permute"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -283,13 +283,13 @@ TEST_P(permute_scale_actv_eltw_scale_actv_quant_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale1_data", get_mem(get_per_channel_layout(p), 1e-1f)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltw_data", get_mem(layout(p.data_type, p.input_format, p.out_shape))),
-        data("scale2_data", get_mem(get_per_channel_layout(p), 1e-1f)),
+        data("scale1_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltw_data", get_mem(engine, layout(p.data_type, p.input_format, p.out_shape))),
+        data("scale2_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
         permute("permute", input_info("input"), p.permute_order),
         eltwise("scale1", { input_info("permute"), input_info("scale1_data") }, eltwise_mode::prod, p.default_type),
         activation("actv1", input_info("scale1"), activation_func::relu),
@@ -362,9 +362,9 @@ TEST_P(permute_scale_eltwise_actv_scale_actv, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.out_shape })),
-        data("scale_data1", get_mem(get_per_channel_layout(p), 1e-1f)),
-        data("scale_data2", get_mem(get_per_channel_layout(p), 1e-1f)),
+        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.out_shape })),
+        data("scale_data1", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("scale_data2", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
         permute("permute", input_info("input"), p.permute_order),
         eltwise("scale1", { input_info("permute"), input_info("scale_data1") }, eltwise_mode::prod, p.default_type),
         activation("actv1", input_info("scale1"), activation_func::relu),

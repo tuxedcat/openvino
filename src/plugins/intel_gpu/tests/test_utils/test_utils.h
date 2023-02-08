@@ -612,6 +612,12 @@ inline void print_primitive(network& net, const std::string& prim_id, bool forma
         std::cout << "Exception: " << e.what() << std::endl;
     }
 }
+
+cldnn::memory::ptr get_mem(cldnn::engine& engine, cldnn::layout l, int min, int max);
+cldnn::memory::ptr get_mem(cldnn::engine& engine, cldnn::layout l);
+cldnn::memory::ptr get_mem(cldnn::engine& engine, cldnn::layout l, float fill_value);
+cldnn::memory::ptr get_repeatless_mem(cldnn::engine& engine, cldnn::layout l, int min, int max);
+
 class membuf : public std::streambuf
 {
 public:

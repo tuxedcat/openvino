@@ -38,7 +38,7 @@ public:
     void execute(fully_connected_test_params& p, bool is_dynamic = false) {
         cfg_not_fused.set_property(ov::intel_gpu::allow_new_shape_infer(is_dynamic));
         cfg_fused.set_property(ov::intel_gpu::allow_new_shape_infer(is_dynamic));
-        auto input_prim = this->get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, this->cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, this->cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -78,7 +78,7 @@ public:
         if (!engine.get_device_info().supports_immad)
             return;
 
-        auto input_prim = p.data_type == data_types::u8 ? get_mem(get_input_layout(p), 0, 10) : get_mem(get_input_layout(p));
+        auto input_prim = p.data_type == data_types::u8 ? get_mem(engine, get_input_layout(p), 0, 10) : get_mem(engine, get_input_layout(p));
 
         auto impl_forcing = cfg_fused.get_property(ov::intel_gpu::force_implementations);
 
@@ -154,8 +154,8 @@ TEST_P(fc_fp32_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", padding(), get_output_dim_size(p)),
         activation("activation", input_info("fc_prim"), activation_func::abs),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -180,8 +180,8 @@ TEST_P(fc_fp32_activation_dynamic, basic) {
     auto dynamic_input_layout = layout{ov::PartialShape::dynamic(test_input_layout.get_partial_shape().size()), test_input_layout.data_type, test_input_layout.format};
     create_topologies(
         input_layout("input", dynamic_input_layout),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", padding(), get_output_dim_size(p)),
         activation("activation", input_info("fc_prim"), activation_func::abs),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -204,8 +204,8 @@ TEST_P(fc_fp32_bias, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         fully_connected("fc_prim", input_info("input"), "weights", "", padding(), get_output_dim_size(p)),
         eltwise("bias_add", { input_info("fc_prim"), input_info("bias") }, eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("bias_add"), p.default_format, data_types::f32)
@@ -231,8 +231,8 @@ TEST_P(fc_fp32_bias_dynamic, basic) {
     auto dynamic_input_layout = layout{ov::PartialShape::dynamic(test_input_layout.get_partial_shape().rank()), test_input_layout.data_type, test_input_layout.format};
     create_topologies(
         input_layout("input", dynamic_input_layout),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         fully_connected("fc_prim", input_info("input"), "weights", "", padding(), get_output_dim_size(p)),
         eltwise("bias_add", { input_info("fc_prim"), input_info("bias") }, eltwise_mode::sum),
         reorder("reorder_bfyx", input_info("bias_add"), p.default_format, data_types::f32)
@@ -256,12 +256,12 @@ TEST_P(fc_int8_quantize_u8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
         quantize("quantize", input_info("fc_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -286,13 +286,13 @@ TEST_P(fc_int8_eltwise_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(engine, get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
         eltwise("eltwise", { input_info("fc_prim"), input_info("eltwise_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
@@ -318,13 +318,13 @@ TEST_P(fc_int8_eltwise_activation_quantize_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(engine, get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
         eltwise("eltwise", { input_info("fc_prim"), input_info("eltwise_data") }, eltwise_mode::prod),
         activation("activation_eltwise", input_info("eltwise"), activation_func::exp),
@@ -361,9 +361,9 @@ TEST_P(fc_int8_inputs_fused_fp32_sum, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("shift_data", get_mem(shift_layout, 1)),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("shift_data", get_mem(engine, shift_layout, 1)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", cldnn::data_types::f32, padding(), get_output_dim_size(p)),
         eltwise("shift", { input_info("fc_prim"), input_info("shift_data") }, eltwise_mode::sum, cldnn::data_types::f32),
         crop("crop", input_info("shift"), get_output_layout(p).get_tensor(), { 0, 0, 0, 0 }),

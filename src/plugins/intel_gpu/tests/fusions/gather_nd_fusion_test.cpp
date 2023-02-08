@@ -43,7 +43,7 @@ struct gather_nd_test_params {
 class GatherNDPrimitiveFusingTest : public ::BaseFusingTest<gather_nd_test_params> {
 public:
     void execute(gather_nd_test_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -119,11 +119,11 @@ TEST_P(gather_nd_quantize, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("gather_nd_indices", get_mem(get_indices_layout(p), 0, p.max_number_in_indices - 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("gather_nd_indices", get_mem(engine, get_indices_layout(p), 0, p.max_number_in_indices - 1)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         gather_nd("gather_nd_prim", input_info("input"), input_info("gather_nd_indices"), input_rank, p.indices_rank, p.batch_dims),
         quantize("quantize", input_info("gather_nd_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -183,9 +183,9 @@ TEST_P(gather_nd_activation_scale_eltwise, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("gather_nd_indices", get_mem(get_indices_layout(p), 0, p.max_number_in_indices - 1)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 255)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("gather_nd_indices", get_mem(engine, get_indices_layout(p), 0, p.max_number_in_indices - 1)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 255)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         gather_nd("gather_nd_prim", input_info("input"), input_info("gather_nd_indices"), input_rank, p.indices_rank, p.batch_dims),
         activation("activation", input_info("gather_nd_prim"), activation_func::abs),
         eltwise("scale", { input_info("activation"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),

@@ -37,7 +37,7 @@ public:
     void execute(mvn_test_params& p) {
         if (engine.get_device_info().supports_immad)
             p.expected_fused_primitives = p.expected_fused_primitives_onednn;
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
 
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -140,12 +140,12 @@ TEST_P(mvn_scale_quantize_i8, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         mvn("mvn", input_info("input"), p.normalize_variance, 1e-10f, false, false),
-        data("scale_data", get_mem(get_per_channel_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p))),
         eltwise("scale", { input_info("mvn"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
-        data("in_low", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(get_single_element_layout(p), -127, 127)),
-        data("out_high", get_mem(get_single_element_layout(p), -127, 127)),
+        data("in_low", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(engine, get_single_element_layout(p), -127, 127)),
+        data("out_high", get_mem(engine, get_single_element_layout(p), -127, 127)),
         quantize("quant", input_info("scale"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 255, data_types::i8),
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
@@ -185,15 +185,15 @@ TEST_P(mvn_scale_activation_eltwise_fp32_quantize_i8, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         mvn("mvn", input_info("input"), p.normalize_variance, 1e-10f, false, false),
-        data("scale_data", get_mem(get_per_channel_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p))),
         eltwise("scale", { input_info("mvn"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("act", input_info("scale"), activation_func::hyperbolic_tan),
-        data("eltw_data", get_mem(layout{ p.input_type, p.default_format, p.elwise_size })),
+        data("eltw_data", get_mem(engine, layout{ p.input_type, p.default_format, p.elwise_size })),
         eltwise("eltw", { input_info("act"), input_info("eltw_data") }, eltwise_mode::sum, data_types::f32),
-        data("in_low", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(get_single_element_layout(p), -128)),
-        data("out_high", get_mem(get_single_element_layout(p), 127)),
+        data("in_low", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(engine, get_single_element_layout(p), -128)),
+        data("out_high", get_mem(engine, get_single_element_layout(p), 127)),
         quantize("quant", input_info("eltw"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 256, data_types::i8),
         reorder("reorder_bfyx", input_info("quant"), format::bfyx, data_types::f32)
@@ -245,7 +245,7 @@ TEST_P(mvn_eltwise, basic) {
     create_topologies(
         input_layout("input", layout{ p.input_type, p.input_format, p.input_size }),
         mvn("mvn", input_info("input"), p.normalize_variance, 1e-10f, false, false),
-        data("eltw_data", get_mem(layout{ p.input_type, p.default_format, p.elwise_size })),
+        data("eltw_data", get_mem(engine, layout{ p.input_type, p.default_format, p.elwise_size })),
         eltwise("eltw", { input_info("mvn"), input_info("eltw_data") }, eltwise_mode::sum, data_types::f32),
         reorder("reorder_bfyx", input_info("eltw"), p.default_format, data_types::f32)
     );
@@ -281,7 +281,7 @@ TEST_P(mvn_eltwise_f16, basic) {
     create_topologies(
         input_layout("input", layout{ p.input_type, p.input_format, p.input_size }),
         mvn("mvn", input_info("input"), p.normalize_variance, 1e-10f, false, false),
-        data("eltw_data", get_mem(layout{ p.input_type, p.default_format, p.elwise_size })),
+        data("eltw_data", get_mem(engine, layout{ p.input_type, p.default_format, p.elwise_size })),
         eltwise("eltw", { input_info("mvn"), input_info("eltw_data") }, eltwise_mode::sum, data_types::f16),
         reorder("reorder_bfyx", input_info("eltw"), p.default_format, data_types::f32)
     );

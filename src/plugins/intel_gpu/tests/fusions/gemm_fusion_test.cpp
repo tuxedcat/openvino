@@ -37,8 +37,8 @@ class GemmFusingTest : public ::BaseFusingTest<gemm_test_params> {
 public:
 
     void execute(gemm_test_params& p) {
-        auto input0_prim = get_mem(get_input_layout(p, 0));
-        auto input1_prim = get_mem(get_input_layout(p, 1));
+        auto input0_prim = get_mem(engine, get_input_layout(p, 0));
+        auto input1_prim = get_mem(engine, get_input_layout(p, 1));
 
         if (!p.kernel_name.empty()) {
             ov::intel_gpu::ImplementationDesc gemm_ref_impl = { format::bfyx, "gemm_ref" };
@@ -54,7 +54,7 @@ public:
         network_fused.set_input_data("input1", input1_prim);
         network_not_fused.set_input_data("input1", input1_prim);
         if (p.in_shapes.size() > 2) {
-            auto input2_prim = get_mem(get_input_layout(p, 2));
+            auto input2_prim = get_mem(engine, get_input_layout(p, 2));
             network_fused.set_input_data("input2", input2_prim);
             network_not_fused.set_input_data("input2", input2_prim);
         }
@@ -140,10 +140,10 @@ TEST_P(gemm_3in_quantize_i8, basic) {
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
         input_layout("input2", get_input_layout(p, 2)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
         gemm("gemm_prim", { input_info("input0"), input_info("input1"), input_info("input2") }, data_types::f32),
         quantize("quantize", input_info("gemm_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -174,10 +174,10 @@ TEST_P(gemm_2in_quantize_u8, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), -5, -2)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 3, 10)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), -5, -2)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 3, 10)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         quantize("quantize", input_info("gemm_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -208,10 +208,10 @@ TEST_P(gemm_2in_quantize_float_in, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         quantize("quantize", input_info("gemm_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -244,7 +244,7 @@ TEST_P(gemm_2in_scale, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -259,7 +259,7 @@ TEST_P(gemm_2in_scale, fp16_scale_out) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
@@ -289,11 +289,11 @@ TEST_P(gemm_2in_act_scale_quantize_i8, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         activation("activation", input_info("gemm_prim"), activation_func::exp),
         eltwise("scale", { input_info("activation"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
@@ -325,12 +325,12 @@ TEST_P(gemm_2in_act_scale_quantize_eltwise_i8, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         activation("activation", input_info("gemm_prim"), activation_func::exp),
         eltwise("scale", { input_info("activation"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
@@ -357,8 +357,8 @@ TEST_P(gemm_2in_act_scale_eltwise, basic) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
+        data("eltwise_data", get_mem(engine, get_output_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::negative),
@@ -378,8 +378,8 @@ TEST_P(gemm_2in_act_scale_eltwise, broadcast_eltwise) {
     create_topologies(
         input_layout("input0", get_input_layout(p, 0)),
         input_layout("input1", get_input_layout(p, 1)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
-        data("eltwise_data", get_mem(get_single_element_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
+        data("eltwise_data", get_mem(engine, get_single_element_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
         eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::negative),

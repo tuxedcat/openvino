@@ -2576,7 +2576,7 @@ public:
     std::vector<primitive_id> executed_prims;
 
     void execute(T& p) {
-        auto input_prim = this->get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         network network_test(this->engine, this->topology_test, this->config);
         network_test.set_input_data("input", input_prim);
 
@@ -2601,26 +2601,6 @@ public:
 
     void setup_with_build_ops(const ExecutionConfig& c) {
         config = c;
-    }
-
-    cldnn::memory::ptr get_mem(cldnn::layout l) {
-        auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
-        if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec = generate_random_1d<int32_t>(s.count() / 32, min_random, max_random);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::i8 || l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(s.count(), min_random, max_random);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::f16) {
-            VF<uint16_t> rnd_vec = generate_random_1d<uint16_t>(s.count(), -1, 1);
-            set_values(prim, rnd_vec);
-        } else {
-            VF<float> rnd_vec = generate_random_1d<float>(s.count(), -1, 1);
-            set_values(prim, rnd_vec);
-        }
-
-        return prim;
     }
 
     layout get_input_layout(T& p) {
@@ -2650,8 +2630,8 @@ TEST_P(testing_removal_reorder, removal_reorder_1d_along_f) {
     auto p = GetParam();
     create_topologies(input_layout("input", get_input_layout(p)),
                 reorder("reorder_input", input_info("input"), format::b_fs_yx_fsv16, data_types::f16),
-                data("weights", get_mem(get_weights_layout(p))),
-                data("bias1", get_mem(get_bias_layout(p))),
+                data("weights", get_mem(engine, get_weights_layout(p))),
+                data("bias1", get_mem(engine, get_bias_layout(p))),
                 reorder("reorder_bias1", input_info("bias1"), format::b_fs_yx_fsv16, data_types::f16),
                 convolution("conv_prim", input_info("reorder_input"), {"weights"}, std::vector<primitive_id>{}, 1, p.stride, p.pad),
                 reorder("reorder_conv", input_info("conv_prim"), format::b_fs_yx_fsv16, data_types::f16),
@@ -2670,9 +2650,9 @@ TEST_P(testing_removal_reorder, only_remove_reorder_shallow_depth_input) {
     layout reorder_layout(data_types::u8, format::b_fs_yx_fsv32, p.in_shape, padding({0, }, 0));
 
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
-        data("weights_sec", get_mem(get_weights_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights_sec", get_mem(engine, get_weights_layout(p))),
         reorder("reorder_fp32", input_info("input"), format::bfyx, data_types::f32),
         convolution("conv_prim", input_info("reorder_fp32"), { "weights" }, { "bias" }, 1, p.stride, p.pad, {1, 1}, p.in_shape, data_types::u8, false),
         reorder("reorder_conv", input_info("conv_prim"), reorder_layout),
@@ -2696,8 +2676,8 @@ TEST_P(testing_removal_reorder, removal_no_padded_reorder) {
     layout reorder_layout(data_types::f16, format::b_fs_yx_fsv16, p.in_shape, padding({0, }, 0));
 
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         reorder("reorder_fp32", input_info("input"), format::bfyx, data_types::f16),
         convolution("conv_prim", input_info("reorder_fp32"), { "weights" }, 1, p.stride, p.pad),
         reorder("reorder_conv", input_info("conv_prim"), reorder_layout),
@@ -2726,8 +2706,8 @@ TEST_P(testing_removal_reorder, removal_padded_reorder) {
     layout reorder_layout(data_types::f16, format::b_fs_yx_fsv16, p.in_shape, padding({0, 0, 1, 1}, 0));
 
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(get_weights_layout(p))),
-        data("bias", get_mem(get_bias_layout(p))),
+        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("bias", get_mem(engine, get_bias_layout(p))),
         reorder("reorder_fp32", input_info("input"), format::bfyx, data_types::f16),
         convolution("conv_prim", input_info("reorder_fp32"), { "weights" }, 1, p.stride, p.pad),
         reorder("reorder_conv", input_info("conv_prim"), reorder_layout),

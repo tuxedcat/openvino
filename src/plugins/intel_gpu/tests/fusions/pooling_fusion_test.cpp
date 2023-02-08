@@ -35,7 +35,7 @@ public:
     void execute(pooling_test_params& p) {
         if (engine.get_device_info().supports_immad)
             p.expected_fused_primitives = p.expected_fused_primitives_onednn;
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
         ExecutionConfig config;
         config.set_property(ov::intel_gpu::optimize_data(true));
         if (!p.kernel_name.empty()) {
@@ -194,7 +194,7 @@ TEST_P(pooling_f32_scale, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 9.0f)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 9.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         reorder("output_reorder", input_info("scale"), format::bfyx, data_types::f32)
@@ -215,7 +215,7 @@ TEST_P(pooling_f32_scale, fp16_scale_out) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 9.0f)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 9.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("output_reorder", input_info("scale"), format::bfyx, data_types::f32)
@@ -252,11 +252,11 @@ TEST_P(pooling_scale_activation_quantize, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 16.0f)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 16.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -280,11 +280,11 @@ TEST_P(pooling_scale_activation_quantize, i8_output_data_type) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127, 127)),
-        data("out_hi", get_mem(get_single_element_layout(p), -127, 127)),
-        data("scale_data",  get_mem(get_per_channel_layout(p), 1.0f / 16.0f)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127, 127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), -127, 127)),
+        data("scale_data",  get_mem(engine, get_per_channel_layout(p), 1.0f / 16.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -308,11 +308,11 @@ TEST_P(pooling_scale_activation_quantize, per_channel) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 16.0f)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 16.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -379,7 +379,7 @@ TEST_P(pooling_scale_activation, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / 16.0f)),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 16.0f)),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -401,7 +401,7 @@ TEST_P(pooling_scale_activation, eltwise_mul) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scale_data", get_mem(get_per_channel_layout(p))),
+        data("scale_data", get_mem(engine, get_per_channel_layout(p))),
         pooling("pooling", input_info("input"), p.pool_mode, kernel, stride, pads_begin, pads_end),
         eltwise("scale", { input_info("pooling"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -535,7 +535,7 @@ public:
         if (!engine.get_device_info().supports_immad)
             return;
 
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
 
         ov::intel_gpu::ImplementationDesc onednn_impl = { p.input_format, "", impl_types::onednn };
         ov::intel_gpu::ImplementationDesc cldnn_impl = { p.input_format, "", impl_types::ocl };

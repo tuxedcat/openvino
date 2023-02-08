@@ -33,7 +33,7 @@ struct lrn_test_params {
 class LrnFusingTest : public ::BaseFusingTest<lrn_test_params> {
 public:
     void execute(lrn_test_params& p) {
-        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim = get_mem(engine, get_input_layout(p));
 
         ExecutionConfig config;
         ov::intel_gpu::ImplementationDesc lrn_impl = { p.input_format, p.kernel_name };
@@ -109,11 +109,11 @@ TEST_P(lrn_fp32_quantize_u8_eltwise_activation, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
         lrn("lrn_norm", input_info("input"), size, k, alpha, beta, p.lrn_type),
         quantize("quantize", input_info("lrn_norm"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -136,11 +136,11 @@ TEST_P(lrn_fp32_quantize_u8_eltwise_activation, per_channel) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("eltwise_data", get_mem(get_per_channel_layout(p), 1.0f / 255)),
+        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("eltwise_data", get_mem(engine, get_per_channel_layout(p), 1.0f / 255)),
         lrn("lrn_norm", input_info("input"), size, k, alpha, beta, p.lrn_type),
         quantize("quantize", input_info("lrn_norm"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
@@ -187,11 +187,11 @@ TEST_P(lrn_fp32_quantize_i8_eltwise_activation, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(get_single_element_layout(p),  127)),
-        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p),  127)),
+        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
         lrn("lrn_norm", input_info("input"), size, k, alpha, beta, p.lrn_type),
         quantize("quantize", input_info("lrn_norm"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
@@ -231,11 +231,11 @@ TEST_P(lrn_fp32_eltwise_activation_quantize_u8, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(get_single_element_layout(p), 255)),
-        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
         lrn("lrn_norm", input_info("input"), size, k, alpha, beta, p.lrn_type),
         eltwise("eltwise", { input_info("lrn_norm"), input_info("eltwise_data") }, eltwise_mode::prod),
         activation("activation", input_info("eltwise"), activation_func::exp),
@@ -272,7 +272,7 @@ TEST_P(lrn_fp16_eltwise_activation, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
         lrn("lrn_norm", input_info("input"), size, k, alpha, beta, p.lrn_type),
         eltwise("eltwise", { input_info("lrn_norm"), input_info("eltwise_data") }, eltwise_mode::prod),
         activation("activation", input_info("eltwise"), activation_func::exp),
