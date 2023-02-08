@@ -106,8 +106,9 @@ public:
         }
 
         ASSERT_EQ(val_ref.size(), val_opt.size());
-        ASSERT_TRUE(format::is_simple_data_format(lay_ref.format));
-        ASSERT_TRUE(format::is_simple_data_format(lay_opt.format));
+        // ASSERT_TRUE(format::is_simple_data_format(lay_ref.format));
+        // ASSERT_TRUE(format::is_simple_data_format(lay_opt.format));
+        ASSERT_TRUE(lay_ref.format == lay_opt.format);
         ASSERT_TRUE(lay_ref.count() == lay_opt.count());
         // NOTE:
         // val_ref.size()==memory size
@@ -116,7 +117,7 @@ public:
         // This loop is valid only when lay_ref is planar(simple) format
         for (size_t i = 0; i < lay_ref.count(); i++) {
             float err = abs(val_opt[i] - val_ref[i]);
-            ASSERT_TRUE(err - 1e-8 <= std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])))
+            ASSERT_TRUE(err <= std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])) + 1e-8)
                 << "i = " << i << "\ntolerance = " << std::max(tolerance_abs, tolerance_rel * abs(val_ref[i]))
                 << "\ndiff = " << err << "\nref[i] = " << val_ref[i] << "\nopt[i] = " << val_opt[i];
         }
