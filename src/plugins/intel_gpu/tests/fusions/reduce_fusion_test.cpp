@@ -136,17 +136,17 @@ TEST_P(reduce_eltwise_activation_quantize, basic) {
     update_out_shape(p);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        // data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
-        // data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
-        // data("out_lo", get_mem(get_single_element_layout(p), -128)),
-        // data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        // data("eltwise_data", get_mem(get_output_layout(p))),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(get_output_layout(p))),
         reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
-        // eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
-        // activation("activation", input_info("eltwise"), activation_func::relu),
-        // quantize("quantize", input_info("activation"), input_info("in_lo"), input_info("in_hi"),
-        //          input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
-        reorder("output_reorder", input_info("reduce"), p.default_format, data_types::f32)
+        eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
+        activation("activation", input_info("eltwise"), activation_func::relu),
+        quantize("quantize", input_info("activation"), input_info("in_lo"), input_info("in_hi"),
+                 input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
+        reorder("output_reorder", input_info("quantize"), p.default_format, data_types::f32)
     );
     // cfg_not_fused.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{
     //     { "reduce", { format::any, "reduce_ref", impl_types::ocl } },

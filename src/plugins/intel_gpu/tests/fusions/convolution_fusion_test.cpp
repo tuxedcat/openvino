@@ -2062,7 +2062,7 @@ TEST_P(conv_int8_activation, fsv16) {
         return;
     }
 
-    tolerance = default_tolerance(p.default_type);
+    tolerance_abs = default_tolerance(p.default_type);
     execute(p);
 }
 

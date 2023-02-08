@@ -116,7 +116,7 @@ public:
         // This loop is valid only when lay_ref is planar(simple) format
         for (size_t i = 0; i < lay_ref.count(); i++) {
             float err = abs(val_opt[i] - val_ref[i]);
-            ASSERT_TRUE(err < std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])))
+            ASSERT_TRUE(err - 1e-8 <= std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])))
                 << "i = " << i << "\ntolerance = " << std::max(tolerance_abs, tolerance_rel * abs(val_ref[i]))
                 << "\ndiff = " << err << "\nref[i] = " << val_ref[i] << "\nopt[i] = " << val_opt[i];
         }
