@@ -365,9 +365,6 @@ TEST_P(gemm_2in_act_scale_eltwise, basic) {
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum,  data_types::f32),
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
-    // Activation won't be fused because onednn doesn't support negative activation
-    if (engine.get_device_info().supports_immad && !p.kernel_name.empty())
-        p.expected_fused_primitives += 2;
 
     tolerance_abs = default_tolerance(p.default_type);
     execute(p);
@@ -386,9 +383,6 @@ TEST_P(gemm_2in_act_scale_eltwise, broadcast_eltwise) {
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum,  data_types::f32),
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
-    // Activation won't be fused because onednn doesn't support negative activation
-    if (engine.get_device_info().supports_immad && !p.kernel_name.empty())
-        p.expected_fused_primitives += 2;
 
     tolerance_abs = default_tolerance(p.default_type);
     execute(p);
