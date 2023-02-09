@@ -360,7 +360,7 @@ TEST_P(gemm_2in_act_scale_eltwise, basic) {
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
     // Activation won't be fused because onednn doesn't support negative activation
-    if (engine.get_device_info().supports_immad && !p.kernel_name.empty())
+    if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives += 2;
 
     tolerance = default_tolerance(p.default_type);
@@ -381,7 +381,7 @@ TEST_P(gemm_2in_act_scale_eltwise, broadcast_eltwise) {
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
     );
     // Activation won't be fused because onednn doesn't support negative activation
-    if (engine.get_device_info().supports_immad && !p.kernel_name.empty())
+    if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives += 2;
 
     tolerance = default_tolerance(p.default_type);
