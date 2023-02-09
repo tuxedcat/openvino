@@ -36,7 +36,7 @@ struct scatter_nd_update_test_params {
 class ScatterNDUpdatePrimitiveFusingTest : public ::BaseFusingTest<scatter_nd_update_test_params> {
 public:
     void execute(scatter_nd_update_test_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -231,11 +231,11 @@ TEST_P(scatter_nd_update_quantize, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         data("scatter_nd_update_indices", get_indices_mem(p)),
-        data("scatter_nd_update_updates", get_mem(engine, get_updates_layout(p), 0, 100)),
-        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scatter_nd_update_updates", get_mem(get_updates_layout(p), 0, 100)),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         scatter_nd_update("scatter_nd_update_prim", input_info("input"), input_info("scatter_nd_update_indices"),
                           input_info("scatter_nd_update_updates"), p.indices_rank),
         quantize("quantize", input_info("scatter_nd_update_prim"), input_info("in_lo"), input_info("in_hi"),
@@ -345,9 +345,9 @@ TEST_P(scatter_nd_update_scale_activation_eltwise, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         data("scatter_nd_update_indices", get_indices_mem(p)),
-        data("scatter_nd_update_updates", get_mem(engine, get_updates_layout(p), 0, 100)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), -1, 1)),
-        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.input_shape })),
+        data("scatter_nd_update_updates", get_mem(get_updates_layout(p), 0, 100)),
+        data("scale_data", get_mem(get_per_channel_layout(p), -1, 1)),
+        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.input_shape })),
         scatter_nd_update("scatter_nd_update_prim", input_info("input"), input_info("scatter_nd_update_indices"),
                           input_info("scatter_nd_update_updates"), p.indices_rank),
         activation("activation", input_info("scatter_nd_update_prim"), activation_func::abs),

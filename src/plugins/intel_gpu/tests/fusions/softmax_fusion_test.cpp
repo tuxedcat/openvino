@@ -33,7 +33,7 @@ class SoftmaxPrimitiveFusingTest : public ::BaseFusingTest<softmax_test_params> 
 public:
 
     void execute(softmax_test_params& p, std::map<std::string, std::vector<std::string>> expected_fused_primitives_ids = {}) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -75,10 +75,10 @@ class softmax_quantize : public SoftmaxPrimitiveFusingTest {};
 TEST_P(softmax_quantize, basic) {
     auto p = GetParam();
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         softmax("softmax", input_info("input"), p.dimension),
         quantize("quantize", input_info("softmax"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -102,10 +102,10 @@ class softmax_quantize_fusing_through : public SoftmaxPrimitiveFusingTest {};
 TEST_P(softmax_quantize_fusing_through, reshape) {
     auto p = GetParam();
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         softmax("softmax", input_info("input"), p.dimension),
         reshape("reshape", input_info("softmax"), get_reshape_shape(p)),
         quantize("quantize", input_info("reshape"), input_info("in_lo"), input_info("in_hi"),
@@ -121,10 +121,10 @@ TEST_P(softmax_quantize_fusing_through, reorder) {
     auto p = GetParam();
     auto reorder_layout = layout{ p.data_type, p.input_format, get_reshape_shape(p), padding{} };
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         softmax("softmax", input_info("input"), p.dimension),
         reorder("reorder", input_info("softmax"), reorder_layout),
         quantize("quantize", input_info("reorder"), input_info("in_lo"), input_info("in_hi"),
@@ -140,10 +140,10 @@ TEST_P(softmax_quantize_fusing_through, chain) {
     auto p = GetParam();
     auto reorder_layout = layout{ p.data_type, p.input_format, get_reshape_shape(p), padding{} };
     create_topologies(input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         softmax("softmax", input_info("input"), p.dimension),
         reshape("reshape_first", input_info("softmax"), get_reshape_shape(p)),
         reorder("reorder", input_info("reshape_first"), reorder_layout),

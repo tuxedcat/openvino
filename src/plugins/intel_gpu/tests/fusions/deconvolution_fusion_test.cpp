@@ -59,7 +59,7 @@ struct deconv_eltw_test_params {
 class DeconvolutionFusingTest : public ::BaseFusingTest<deconv_test_params> {
 public:
     void execute(deconv_test_params& p) {
-        execute(p, get_mem(engine, get_input_layout(p)));
+        execute(p, get_mem(get_input_layout(p)));
     }
     void execute(deconv_test_params& p, cldnn::memory::ptr input_prim) {
         if (engine.get_device_info().supports_immad)
@@ -101,7 +101,7 @@ public:
         if (engine.get_device_info().supports_immad)
             p.expected_fused_primitives = p.expected_fused_primitives_onednn;
 
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -235,7 +235,7 @@ TEST_P(deconv_actv, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("weights", get_mem(get_weights_layout(p))),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         activation("act", input_info("deconv"), activation_func::relu),
         reorder("out", input_info("act"), p.default_format, data_types::f32)
@@ -328,8 +328,8 @@ TEST_P(deconv_bias, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("bias", get_mem(engine, get_bias_layout(p))),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("bias", get_mem(get_bias_layout(p))),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         eltwise("bias_add", { input_info("deconv"), input_info("bias") }, eltwise_mode::sum),
         reorder("out", input_info("bias_add"), p.default_format, data_types::f32)
@@ -379,30 +379,30 @@ TEST_P(deconv_scale, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -4, 4)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(get_weights_layout(p), -4, 4)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         eltwise("scale", { input_info("deconv"), input_info("scale_data") }, eltwise_mode::prod),
         reorder("out", input_info("scale"), p.default_format, data_types::f32)
     );
 
     tolerance_abs = default_tolerance(p.data_type);
-    execute(p, get_mem(engine, get_input_layout(p), 0, 16));
+    execute(p, get_mem(get_input_layout(p), 0, 16));
 }
 
 TEST_P(deconv_scale, fp16_scale_out) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -4, 4)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(get_weights_layout(p), -4, 4)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         eltwise("scale", { input_info("deconv"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("out", input_info("scale"), p.default_format, data_types::f32)
     );
 
     tolerance_abs = default_tolerance(p.data_type);
-    execute(p, get_mem(engine, get_input_layout(p), 0, 16));
+    execute(p, get_mem(get_input_layout(p), 0, 16));
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, deconv_scale, ::testing::ValuesIn(std::vector<deconv_test_params>{
@@ -448,8 +448,8 @@ TEST_P(deconv_actv_eltw_actv, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("eltw_data", get_mem(engine, get_output_layout(p))),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("eltw_data", get_mem(get_output_layout(p))),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         activation("act1", input_info("deconv"), activation_func::relu),
         eltwise("eltw", { input_info("act1"), input_info("eltw_data") }, eltwise_mode::sum),
@@ -543,12 +543,12 @@ TEST_P(deconv_scale_actv_quant_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.f/p.kernel.count())),
-        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.f/p.kernel.count())),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         eltwise("scale", { input_info("deconv"), input_info("scale_data") }, eltwise_mode::prod),
         activation("actv", input_info("scale"), activation_func::softsign),
@@ -647,18 +647,18 @@ TEST_P(deconv_scale_actv_quant_u8_eltw_scale_actv_quant_i8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("scale1_data", get_mem(engine, get_per_channel_layout(p), 1.f / p.kernel.count())),
-        data("in1_lo", get_mem(engine, get_per_channel_layout(p), 0)),
-        data("in1_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out1_lo", get_mem(engine, get_single_element_layout(p), 0)),
-        data("out1_hi", get_mem(engine, get_single_element_layout(p), 255)),
-        data("eltw_data", get_mem(engine, layout(p.default_type, p.input_format, p.out_shape))),
-        data("scale2_data", get_mem(engine, get_per_channel_layout(p), 1.f / p.kernel.count())),
-        data("in2_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in2_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out2_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out2_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("scale1_data", get_mem(get_per_channel_layout(p), 1.f / p.kernel.count())),
+        data("in1_lo", get_mem(get_per_channel_layout(p), 0)),
+        data("in1_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out1_lo", get_mem(get_single_element_layout(p), 0)),
+        data("out1_hi", get_mem(get_single_element_layout(p), 255)),
+        data("eltw_data", get_mem(layout(p.default_type, p.input_format, p.out_shape))),
+        data("scale2_data", get_mem(get_per_channel_layout(p), 1.f / p.kernel.count())),
+        data("in2_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in2_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out2_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out2_hi", get_mem(get_single_element_layout(p), 127)),
         deconvolution("deconv", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         eltwise("scale1", { input_info("deconv"), input_info("scale1_data") }, eltwise_mode::prod),
         activation("actv1", input_info("scale1"), activation_func::relu),
@@ -757,23 +757,23 @@ TEST_P(deconv_scale_activation_quantize_i8_eltwise_quantize_u8, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
+        data("weights", get_mem(get_weights_layout(p))),
         deconvolution("deconv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.f / p.kernel.count())),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.f / p.kernel.count())),
         eltwise("scale", { input_info("deconv_prim"), input_info("scale_data") }, eltwise_mode::prod),
         activation("activation", input_info("scale"), activation_func::relu),
-        data("in_low", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_high", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_low", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(get_single_element_layout(p), -127)),
+        data("out_high", get_mem(get_single_element_layout(p), 127)),
         quantize("quant", input_info("activation"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 255, data_types::i8),
-        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
         eltwise("eltw", { input_info("quant"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
-        data("in_low2", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_high2", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_low2", get_mem(engine, get_single_element_layout(p), 0)),
-        data("out_high2", get_mem(engine, get_single_element_layout(p), 255)),
+        data("in_low2", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_high2", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_low2", get_mem(get_single_element_layout(p), 0)),
+        data("out_high2", get_mem(get_single_element_layout(p), 255)),
         quantize("quant2", input_info("eltw"), input_info("in_low2"), input_info("in_high2"),
                  input_info("out_low2"), input_info("out_high2"), 256, data_types::u8),
         reorder("reorder_bfyx", input_info("quant2"), p.default_format, data_types::f32)
@@ -806,8 +806,8 @@ TEST_P(deconv_activation_eltwise_diff_sizes, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.eltw_shape })),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.eltw_shape })),
         deconvolution("deconv_prim", input_info("input"), { "weights" }, p.groups, p.stride, p.pad),
         activation("activation", input_info("deconv_prim"), activation_func::relu),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),

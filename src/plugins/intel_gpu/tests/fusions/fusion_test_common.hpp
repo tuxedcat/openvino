@@ -29,8 +29,7 @@ public:
     float tolerance_rel = 0.01f;
 
     static const int min_random = -200;
-    static const int max_random = 200; //TODO: remove?
-
+    static const int max_random = 200;
     BaseFusingTest() : cfg_fused(ov::device::id("1")), cfg_not_fused(ov::device::id("1")) {}
     void SetUp() override {
         cfg_fused.set_property(ov::intel_gpu::enable_memory_pool(false));

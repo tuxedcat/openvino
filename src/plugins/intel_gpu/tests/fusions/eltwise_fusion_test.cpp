@@ -31,8 +31,8 @@ struct eltwise_test_params {
 class EltwiseFusingTest : public ::BaseFusingTest<eltwise_test_params> {
 public:
     void execute(eltwise_test_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
-        auto input_prim2 = get_mem(engine, get_input_layout2(p));
+        auto input_prim = get_mem(get_input_layout(p));
+        auto input_prim2 = get_mem(get_input_layout2(p));
 
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -112,10 +112,10 @@ TEST_P(eltwise_quantize, u8) {
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(get_single_element_layout(p), 255)),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
         reorder("out", input_info("quantize"), p.default_format, data_types::f32)
@@ -131,10 +131,10 @@ TEST_P(eltwise_quantize, i8_per_channel) {
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
-        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
         reorder("out", input_info("quantize"), p.default_format, data_types::f32)
@@ -181,8 +181,8 @@ class eltwise_const_path : public EltwiseFusingTest {};
 TEST_P(eltwise_const_path, not_fuse_to_const_eltwise) {
     auto p = GetParam();
     create_topologies(
-        data("const1", get_mem(engine, get_input_layout2(p), -10, 10)),
-        data("const2", get_mem(engine, get_input_layout2(p), -10, 10)),
+        data("const1", get_mem(get_input_layout2(p), -10, 10)),
+        data("const2", get_mem(get_input_layout2(p), -10, 10)),
         input_layout("input", get_input_layout2(p)),
         eltwise("eltwise", { input_info("const1"), input_info("const2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("input") }, eltwise_mode::sum),
@@ -212,7 +212,7 @@ TEST_P(eltwise_fp32_fsv16, add) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("add_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -234,7 +234,7 @@ TEST_P(eltwise_fp32_fsv16, add_per_element) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_input_layout(p), -10, 10)),
+        data("add_data", get_mem(get_input_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -258,7 +258,7 @@ TEST_P(eltwise_fp32_fsv16, add_broadcast) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, eltwise2_layout, -10, 10)),
+        data("add_data", get_mem(eltwise2_layout, -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -286,7 +286,7 @@ TEST_P(eltwise_fp32_fsv32, add) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("add_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -308,7 +308,7 @@ TEST_P(eltwise_fp32_fsv32, add_per_element) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_input_layout(p), -10, 10)),
+        data("add_data", get_mem(get_input_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -337,7 +337,7 @@ TEST_P(eltwise_fp32_fsv4, add) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("add_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -359,7 +359,7 @@ TEST_P(eltwise_fp32_fsv4, add_per_element) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_input_layout(p), -10, 10)),
+        data("add_data", get_mem(get_input_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -389,7 +389,7 @@ TEST_P(eltwise_fp32_fused_prims, scale_activation) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("scale_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("scale", { input_info("eltwise"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::abs),
@@ -405,7 +405,7 @@ TEST_P(eltwise_fp32_fused_prims, eltwise_activation) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("eltwise_data", get_mem(engine, get_input_layout2(p), -10, 10)),
+        data("eltwise_data", get_mem(get_input_layout2(p), -10, 10)),
         eltwise("eltwise1", { input_info("input"), input_info("input2") }, p.mode, data_types::f32),
         eltwise("eltwise2", { input_info("eltwise1"), input_info("eltwise_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("eltwise2"), activation_func::abs),
@@ -421,7 +421,7 @@ TEST_P(eltwise_fp32_fused_prims, eltwise_activation_with_broadcast) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("eltwise_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("eltwise_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise1", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("eltwise2", { input_info("eltwise1"), input_info("eltwise_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("eltwise2"), activation_func::abs),
@@ -470,7 +470,7 @@ TEST_P(eltwise_fp32_scale, 6d) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("scale_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("scale", { input_info("eltwise"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         reorder("out", input_info("scale"), p.default_format, data_types::f32)
@@ -490,7 +490,7 @@ TEST_P(eltwise_fp16_byxf, add) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
-        data("add_data", get_mem(engine, get_per_channel_layout(p), -10, 10)),
+        data("add_data", get_mem(get_per_channel_layout(p), -10, 10)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
         eltwise("add", { input_info("eltwise"), input_info("add_data") }, eltwise_mode::sum),
         activation("activation", input_info("add"), activation_func::negative),
@@ -518,10 +518,10 @@ TEST_P(eltwise_no_pitches_same_dims_quantize, quantize_f32_output) {
         input_layout("input", get_input_layout(p)),
         input_layout("input2", get_input_layout2(p)),
         eltwise("eltwise", { input_info("input"), input_info("input2") }, p.mode, p.default_type),
-        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, p.input_type),
         reorder("out", input_info("quantize"), p.default_format, data_types::f32)

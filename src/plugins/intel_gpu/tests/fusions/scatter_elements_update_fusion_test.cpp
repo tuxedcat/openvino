@@ -33,7 +33,7 @@ class ScatterElementsUpdatePrimitiveFusingTest : public ::BaseFusingTest<scatter
 public:
     void execute(scatter_elements_update_test_params& p) {
 
-        auto input_prim = get_mem(engine, get_input_layout(p), -5, 5);
+        auto input_prim = get_mem(get_input_layout(p), -5, 5);
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -94,12 +94,12 @@ TEST_P(scatter_elements_update_quantize, basic) {
     const auto &r = reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scatter_elements_update_indices", get_repeatless_mem(engine, get_indices_layout(p), 0, static_cast<int>(get_axis_dim(p)) - 1)),
-        data("scatter_elements_update_updates", get_mem(engine, get_updates_layout(p), 0, 100)),
-        data("in_lo", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 127)),
+        data("scatter_elements_update_indices", get_repeatless_mem(get_indices_layout(p), 0, static_cast<int>(get_axis_dim(p)) - 1)),
+        data("scatter_elements_update_updates", get_mem(get_updates_layout(p), 0, 100)),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -127)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
         seu,
         q,
         r
@@ -130,10 +130,10 @@ TEST_P(scatter_elements_update_scale_activation_eltwise, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("scatter_elements_update_indices", get_repeatless_mem(engine, get_indices_layout(p), 0, static_cast<int>(get_axis_dim(p)) - 1)),
-        data("scatter_elements_update_updates", get_mem(engine, get_updates_layout(p), 0, 5)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), -1, 1)),
-        data("eltwise_data", get_mem(engine, layout{ p.data_type, p.input_format, p.input_shape })),
+        data("scatter_elements_update_indices", get_repeatless_mem(get_indices_layout(p), 0, static_cast<int>(get_axis_dim(p)) - 1)),
+        data("scatter_elements_update_updates", get_mem(get_updates_layout(p), 0, 5)),
+        data("scale_data", get_mem(get_per_channel_layout(p), -1, 1)),
+        data("eltwise_data", get_mem(layout{ p.data_type, p.input_format, p.input_shape })),
         scatter_elements_update("scatter_elements_update_prim", input_info("input"), input_info("scatter_elements_update_indices"),
                                 input_info("scatter_elements_update_updates"), p.axis),
         activation("activation", input_info("scatter_elements_update_prim"), activation_func::abs),

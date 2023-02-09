@@ -35,8 +35,8 @@ public:
         if (!engine.get_device_info().supports_immad)
             return;
 
-        auto input0_prim = get_mem(engine, get_input_layout(p));
-        auto input1_prim = get_mem(engine, get_input_layout(p));
+        auto input0_prim = get_mem(get_input_layout(p));
+        auto input1_prim = get_mem(get_input_layout(p));
 
         ov::intel_gpu::ImplementationDesc onednn_impl = { p.input_format, "", impl_types::onednn };
         ov::intel_gpu::ImplementationDesc cldnn_impl = { p.input_format, "", impl_types::ocl };
@@ -119,7 +119,7 @@ TEST_P(concat_onednn_eltwise, along_f) {
     create_topologies(
         input_layout("input0", get_input_layout(p)),
         input_layout("input1", get_input_layout(p)),
-        data("scale_data", get_mem(engine, data_layout, 1.0f / tensor{ 1, 1, 4, 4 }.count())),
+        data("scale_data", get_mem(data_layout, 1.0f / tensor{ 1, 1, 4, 4 }.count())),
         concatenation("concat",
                       { input_info("input0"), input_info("input1") },
                       1,

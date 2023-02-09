@@ -39,7 +39,7 @@ struct binary_convolution_test_params {
 class BinaryConvolutionFusingTest : public BaseFusingTest<binary_convolution_test_params> {
 public:
     void execute(binary_convolution_test_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -84,7 +84,7 @@ TEST_P(conv_bin_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         activation("activation", input_info("bin_conv_prim"), activation_func::relu),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
@@ -103,8 +103,8 @@ TEST_P(conv_bin_scale_activation, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/p.kernel.count())),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         eltwise("scale", { input_info("bin_conv_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::relu),
@@ -123,14 +123,14 @@ INSTANTIATE_TEST_SUITE_P(fusings_gpu, conv_bin_scale_activation, ::testing::Valu
 class conv_bin_quantize_bin : public BinaryConvolutionFusingTest {};
 TEST_P(conv_bin_quantize_bin, channel_wise_quantize) {
     auto p = GetParam();
-    auto in_thresh = get_mem(engine, get_per_channel_layout(p), min_random, max_random);
+    auto in_thresh = get_mem(get_per_channel_layout(p), min_random, max_random);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
         data("in_lo", in_thresh),
         data("in_hi", in_thresh),
-        data("out_lo", get_mem(engine, get_per_channel_layout(p), -1)),
-        data("out_hi", get_mem(engine, get_per_channel_layout(p),  1)),
+        data("out_lo", get_mem(get_per_channel_layout(p), -1)),
+        data("out_hi", get_mem(get_per_channel_layout(p),  1)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         quantize("quantize_data", input_info("bin_conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 2, data_types::bin),
@@ -143,14 +143,14 @@ TEST_P(conv_bin_quantize_bin, channel_wise_quantize) {
 
 TEST_P(conv_bin_quantize_bin, blob_wise_quantize) {
     auto p = GetParam();
-    auto in_thresh = get_mem(engine, get_single_element_layout(p), min_random, max_random);
+    auto in_thresh = get_mem(get_single_element_layout(p), min_random, max_random);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
         data("in_lo", in_thresh),
         data("in_hi", in_thresh),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), -1)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 1)),
+        data("out_lo", get_mem(get_single_element_layout(p), -1)),
+        data("out_hi", get_mem(get_single_element_layout(p), 1)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         quantize("quantize_data", input_info("bin_conv_prim"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 2, data_types::bin),
@@ -177,9 +177,9 @@ TEST_P(conv_bin_scale_conv_dw, dw_kernel_3x3_stride2) {
     ov::CoordinateDiff dw_pad = p.pad;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1e-1f)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         eltwise("scale", { input_info("bin_conv_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         convolution("conv_dw", input_info("scale"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, dw_pad, dw_dilation),
@@ -200,9 +200,9 @@ TEST_P(conv_bin_scale_conv_dw, dw_kernel_3x3_stride1) {
     ov::CoordinateDiff dw_pad = p.pad;
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1e-1f)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         eltwise("scale", { input_info("bin_conv_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         convolution("conv_dw", input_info("scale"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, dw_pad, dw_dilation),
@@ -227,16 +227,16 @@ TEST_P(conv_bin_scale_conv_dw_prelu, dw_kernel_3x3_stride2) {
     ov::Strides dw_stride = {2, 2};
     ov::Strides dw_dilation = {1, 1};
     ov::CoordinateDiff dw_pad = p.pad;
-    auto in_thresh = get_mem(engine, get_per_channel_layout(p), min_random, max_random);
+    auto in_thresh = get_mem(get_per_channel_layout(p), min_random, max_random);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1e-1f)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         eltwise("scale", { input_info("bin_conv_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         convolution("conv_dw", input_info("scale"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, dw_pad, dw_dilation),
-        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("slope_data", get_mem(get_per_channel_layout(p))),
         activation("activation", input_info("conv_dw"), "slope_data", activation_func::relu_negative_slope),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
@@ -253,16 +253,16 @@ TEST_P(conv_bin_scale_conv_dw_prelu, dw_kernel_3x3_stride1) {
     ov::Strides dw_stride = {1, 1};
     ov::Strides dw_dilation = {1, 1};
     ov::CoordinateDiff dw_pad = p.pad;
-    auto in_thresh = get_mem(engine, get_per_channel_layout(p), min_random, max_random);
+    auto in_thresh = get_mem(get_per_channel_layout(p), min_random, max_random);
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p), -127, 127)),
-        data("weights_dw", get_mem(engine, dw_weights_layout, -127, 127)),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1e-1f)),
+        data("weights", get_mem(get_weights_layout(p), -127, 127)),
+        data("weights_dw", get_mem(dw_weights_layout, -127, 127)),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1e-1f)),
         binary_convolution("bin_conv_prim", input_info("input"), { "weights" }, p.stride, p.pad, p.dilation, p.out_shape, p.groups),
         eltwise("scale", { input_info("bin_conv_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         convolution("conv_dw", input_info("scale"), { "weights_dw" }, p.out_shape.feature[0], dw_stride, dw_pad, dw_dilation),
-        data("slope_data", get_mem(engine, get_per_channel_layout(p))),
+        data("slope_data", get_mem(get_per_channel_layout(p))),
         activation("activation", input_info("conv_dw"), "slope_data", activation_func::relu_negative_slope),
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );

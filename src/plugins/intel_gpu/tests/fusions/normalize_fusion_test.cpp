@@ -46,7 +46,7 @@ struct normalize_test_params {
 class NormalizeFusingTest : public ::BaseFusingTest<normalize_test_params> {
 public:
     void execute(normalize_test_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
         network_fused.set_input_data("input", input_prim);
@@ -78,11 +78,11 @@ TEST_P(normalize_i8_quantize, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("in_lo", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_hi", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_lo", get_mem(engine, get_single_element_layout(p), 0)),
-        data("out_hi", get_mem(engine, get_single_element_layout(p), 255)),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("in_lo", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), 0)),
+        data("out_hi", get_mem(get_single_element_layout(p), 255)),
         normalize("normalizel2", input_info("input"), "weights", p.across_spatial),
         quantize("quantize", input_info("normalizel2"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::u8),
@@ -103,8 +103,8 @@ TEST_P(normalize_i8_float, basic) {
     auto p = GetParam();
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("weights", get_mem(engine, get_weights_layout(p))),
-        data("scale_data", get_mem(engine, get_per_channel_layout(p), 1.0f/255)),
+        data("weights", get_mem(get_weights_layout(p))),
+        data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/255)),
         normalize("normalizel2", input_info("input"), "weights", p.across_spatial),
         eltwise("scale", { input_info("normalizel2"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::abs),

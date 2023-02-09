@@ -35,7 +35,7 @@ class LoopFusingTest : public ::BaseFusingTest<loop_params> {
 public:
 
     void execute(loop_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
 
         network network_not_fused(this->engine, this->topology_non_fused, cfg_not_fused);
         network network_fused(this->engine, this->topology_fused, cfg_fused);
@@ -73,10 +73,10 @@ TEST_P(permute_eltwise_loop, basic) {
 
     create_topologies(
         input_layout("input", get_input_layout(p)),
-        data("eltwise_data", get_mem(engine, layout{p.data_type, p.default_format, p.loop_input_shape})),
+        data("eltwise_data", get_mem(layout{p.data_type, p.default_format, p.loop_input_shape})),
         permute("permute", input_info("input"), p.permute_order),
         eltwise("eltwise", { input_info("permute"), input_info("eltwise_data") }, eltwise_mode::sum, p.data_type),
-        data("loop_eltwise_init_values", get_mem(engine, layout{p.data_type, format::bfyx, p.loop_eltwise_shape}, 0.f)),
+        data("loop_eltwise_init_values", get_mem(layout{p.data_type, format::bfyx, p.loop_eltwise_shape}, 0.f)),
         data("trip_count", trip_count_mem),
         data("initial_condition", initial_condition_mem),
         mutable_data("num_iteration", num_iteration_mem),

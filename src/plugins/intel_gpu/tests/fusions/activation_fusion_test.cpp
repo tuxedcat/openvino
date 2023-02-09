@@ -30,7 +30,7 @@ struct activation_test_params {
 class ActivationFusingTest : public ::BaseFusingTest<activation_test_params> {
 public:
     void execute(activation_test_params& p) {
-        auto input_prim = get_mem(engine, get_input_layout(p));
+        auto input_prim = get_mem(get_input_layout(p));
 
         ExecutionConfig cfg;
         ov::intel_gpu::ImplementationDesc activation_impl = { p.input_format, p.kernel_name };
@@ -104,10 +104,10 @@ TEST_P(activation_quantize_i8, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         activation("act", input_info("input"), activation_func::relu),
-        data("in_low", get_mem(engine, get_single_element_layout(p), min_random, 0)),
-        data("in_high", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_low", get_mem(engine, get_single_element_layout(p), -127, 0)),
-        data("out_high", get_mem(engine, get_single_element_layout(p), 0, 127)),
+        data("in_low", get_mem(get_single_element_layout(p), min_random, 0)),
+        data("in_high", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_low", get_mem(get_single_element_layout(p), -127, 0)),
+        data("out_high", get_mem(get_single_element_layout(p), 0, 127)),
         quantize("quant", input_info("act"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 255, data_types::i8),
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
@@ -122,10 +122,10 @@ TEST_P(activation_quantize_i8, per_channel) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         activation("act", input_info("input"), activation_func::relu),
-        data("in_low", get_mem(engine, get_per_channel_layout(p), min_random, 0)),
-        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(engine, get_single_element_layout(p), -127, 0)),
-        data("out_high", get_mem(engine, get_single_element_layout(p), 0, 127)),
+        data("in_low", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(get_single_element_layout(p), -127, 0)),
+        data("out_high", get_mem(get_single_element_layout(p), 0, 127)),
         quantize("quant", input_info("act"), input_info("in_low"), input_info("in_high"),
                  input_info("out_low"), input_info("out_high"), 255, data_types::i8),
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
@@ -166,11 +166,11 @@ TEST_P(activation_eltwise_activation_quantize_u8, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         activation("act", input_info("input"), activation_func::relu),
-        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
-        data("in_low", get_mem(engine, get_single_element_layout(p), 0)),
-        data("in_high", get_mem(engine, get_single_element_layout(p), 1, max_random)),
-        data("out_low", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_high", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("in_low", get_mem(get_single_element_layout(p), 0)),
+        data("in_high", get_mem(get_single_element_layout(p), 1, max_random)),
+        data("out_low", get_mem(get_single_element_layout(p), -127)),
+        data("out_high", get_mem(get_single_element_layout(p), 127)),
         eltwise("eltwise", { input_info("act"), input_info("eltwise_data") }, eltwise_mode::prod, p.default_type),
         activation("act2", input_info("eltwise"), activation_func::softsign),
         quantize("quant", input_info("act2"), input_info("in_low"), input_info("in_high"),
@@ -187,11 +187,11 @@ TEST_P(activation_eltwise_activation_quantize_u8, per_channel) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         activation("act", input_info("input"), activation_func::relu),
-        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
-        data("in_low", get_mem(engine, get_per_channel_layout(p), 0)),
-        data("in_high", get_mem(engine, get_per_channel_layout(p), 1, max_random)),
-        data("out_low", get_mem(engine, get_single_element_layout(p), -127)),
-        data("out_high", get_mem(engine, get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
+        data("in_low", get_mem(get_per_channel_layout(p), 0)),
+        data("in_high", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_low", get_mem(get_single_element_layout(p), -127)),
+        data("out_high", get_mem(get_single_element_layout(p), 127)),
         eltwise("eltwise", { input_info("act"), input_info("eltwise_data") }, eltwise_mode::prod, p.default_type),
         activation("act2", input_info("eltwise"), activation_func::softsign),
         quantize("quant", input_info("act2"), input_info("in_low"), input_info("in_high"),
@@ -233,7 +233,7 @@ TEST_P(activation_eltwise_activation, basic) {
     create_topologies(
         input_layout("input", get_input_layout(p)),
         activation("act", input_info("input"), activation_func::relu),
-        data("eltwise_data", get_mem(engine, get_single_element_layout(p), 1.0f / 255)),
+        data("eltwise_data", get_mem(get_single_element_layout(p), 1.0f / 255)),
         eltwise("eltwise", { input_info("act"), input_info("eltwise_data") }, eltwise_mode::prod, p.default_type),
         activation("act2", input_info("eltwise"), activation_func::exp),
         reorder("reorder_bfyx", input_info("act2"), p.default_format, data_types::f32)
