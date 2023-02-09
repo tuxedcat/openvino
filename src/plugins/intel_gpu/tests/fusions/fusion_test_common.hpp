@@ -32,8 +32,8 @@ public:
     static const int max_random = 200;
     BaseFusingTest() : cfg_fused(ov::device::id("1")), cfg_not_fused(ov::device::id("1")) {}
     void SetUp() override {
-        cfg_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
-        cfg_not_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+        // cfg_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+        // cfg_not_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
 
         cfg_fused.set_property(ov::intel_gpu::optimize_data(true));
         cfg_not_fused.set_property(ov::intel_gpu::optimize_data(false));
