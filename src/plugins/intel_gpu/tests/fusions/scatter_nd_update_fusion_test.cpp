@@ -243,7 +243,7 @@ TEST_P(scatter_nd_update_quantize, basic) {
         reorder("reorder_bfyx", input_info("quantize"), p.input_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -356,7 +356,7 @@ TEST_P(scatter_nd_update_scale_activation_eltwise, basic) {
         reorder("reorder_bfyx", input_info("eltwise"), p.input_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 

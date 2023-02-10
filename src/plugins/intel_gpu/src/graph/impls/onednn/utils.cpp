@@ -172,6 +172,13 @@ void combine_bf_with_first_spatial_dim(cldnn::layout& l) {
     l.set_partial_shape(new_shape);
 }
 
+void combine_bf(cldnn::layout& l) {
+    auto s = l.get_shape();
+    s[1] *= s[0];
+    s.erase(s.begin());
+    l.set_partial_shape(s);
+}
+
 int64_t get_f_offset(cldnn::layout&& l, dnnl::memory::desc&& desc) {
     int64_t offset = 0;
     auto f_padding = l.data_padding.lower_size().feature[0];
@@ -397,7 +404,11 @@ dnnl::algorithm convert_activation_func(cldnn::activation_func func) {
         case cldnn::activation_func::hyperbolic_tan: return dnnl::algorithm::eltwise_tanh;
         case cldnn::activation_func::pow: return dnnl::algorithm::eltwise_pow;
         case cldnn::activation_func::sqrt: return dnnl::algorithm::eltwise_sqrt;
+        case cldnn::activation_func::square: return dnnl::algorithm::eltwise_square;
         case cldnn::activation_func::hard_sigmoid: return dnnl::algorithm::eltwise_hardsigmoid;
+        // Activations that are undef algorithms must be converted to other activations before pushing to post-op.
+        case cldnn::activation_func::hsigmoid: return dnnl::algorithm::undef;
+        case cldnn::activation_func::negative: return dnnl::algorithm::undef;
         default: throw std::runtime_error("Unsupported activation func for onednn primitive " + std::to_string(static_cast<int>(func)));
     }
 }

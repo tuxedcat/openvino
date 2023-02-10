@@ -44,6 +44,18 @@ public:
         network_not_fused.set_input_data("input", input_prim);
 
         compare(network_not_fused, network_fused, p);
+        auto pi_fused = network_fused.get_primitives_info();
+        auto info_fused = std::find_if(pi_fused.begin(), pi_fused.end(), [](primitive_info& p) {
+            return p.original_id.find("reduce") != std::string::npos;
+        });
+        if (info_fused != pi_fused.end())
+            std::cout << "kernel: " << info_fused->kernel_id << std::endl;
+        std::cout << "data_type: " << data_type_traits::name(p.data_type) << std::endl;
+        std::cout << "desired_kernel: " << p.kernel_name << std::endl;
+        std::cout << "reduce_axes: ";
+        for (auto i : p.reduce_axes)
+            std::cout << i << ' ';
+        std::cout << std::endl;
     }
 
     void update_out_shape(reduce_test_params& p) {
@@ -94,7 +106,7 @@ public:
 #define CASE_REDUCE_F32_3 { 16, 16, 16, 8, 8, 8 }, { 16, 16, 16, 8, 8, 8 }, data_types::f32, format::bfwzyx, data_types::f32, format::bfyx
 #define CASE_REDUCE_F32_4 { 2, 8, 4, 4 }, { 2, 8, 4, 4 }, data_types::f32, format::b_fs_yx_fsv16, data_types::f32, format::bfyx
 
-#define CASE_REDUCE_F16_0 { 3, 7, 5, 7 }, { 3, 7, 5, 7 }, data_types::f16, format::b_fs_yx_fsv16, data_types::f32, format::bfyx
+#define CASE_REDUCE_F16_0 { 1, 15, 2, 2 }, { 1, 15, 2, 2 }, data_types::f16, format::b_fs_yx_fsv16, data_types::f32, format::bfyx
 #define CASE_REDUCE_F16_1 { 2, 8, 4, 4 }, { 2, 8, 4, 4 }, data_types::f16, format::bfyx, data_types::f32, format::bfyx
 #define CASE_REDUCE_F16_2 { 2, 4, 8, 4, 4 }, { 2, 4, 8, 4, 4 }, data_types::f16, format::bfzyx, data_types::f32, format::bfyx
 #define CASE_REDUCE_F16_3 { 3, 5, 3, 5, 7, 7 }, { 3, 5, 3, 5, 7, 7 }, data_types::f16, format::bfwzyx, data_types::f32, format::bfyx
@@ -136,29 +148,11 @@ TEST_P(reduce_eltwise_activation_quantize, basic) {
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
         reorder("output_reorder", input_info("quantize"), p.default_format, data_types::f32)
     );
+    // cfg_not_fused.set_property(ov::intel_gpu::force_implementations(ov::intel_gpu::ImplForcingMap{
+    //     { "reduce", { format::any, "reduce_ref", impl_types::ocl } },
+    // }));
 
-    tolerance = 1.f;
-    execute(p);
-}
-
-TEST_P(reduce_eltwise_activation_quantize, per_channel) {
-    auto p = GetParam();
-    update_out_shape(p);
-    create_topologies(
-        input_layout("input", get_input_layout(p)),
-        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
-        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
-        data("out_lo", get_mem(get_single_element_layout(p), -128)),
-        data("out_hi", get_mem(get_single_element_layout(p), 127)),
-        data("eltwise_data", get_mem(get_output_layout(p))),
-        reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
-        eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
-        activation("activation", input_info("eltwise"), activation_func::relu),
-        quantize("quantize", input_info("activation"), input_info("in_lo"), input_info("in_hi"), input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
-        reorder("output_reorder", input_info("quantize"), p.default_format, data_types::f32)
-    );
-
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -185,7 +179,7 @@ INSTANTIATE_TEST_SUITE_P(fusings_gpu, reduce_eltwise_activation_quantize, ::test
     reduce_test_params{ CASE_REDUCE_F16_1, 2, 5, reduce_mode::max, { 2, 1, 0 }, true, "reduce_ref" },
     reduce_test_params{ CASE_REDUCE_F16_2, 2, 5, reduce_mode::sum, { 4, 3, 0 }, true, "reduce_ref" },
     reduce_test_params{ CASE_REDUCE_F16_1, 2, 5, reduce_mode::min, { 3, 2, 1 }, true, "reduce_ref" },
-    reduce_test_params{ CASE_REDUCE_F16_0, 2, 5, reduce_mode::sum, { 1, 0 }, true, "reduce_gpu_b_fs_yx_fsv16" },
+    reduce_test_params{ CASE_REDUCE_F16_0, 2, 5, reduce_mode::sum, { 1, 0 }, true, "reduce_gpu_b_fs_yx_fsv16" },//21
     reduce_test_params{ CASE_REDUCE_F16_4, 2, 5, reduce_mode::mean, { 1, 3 }, true, "reduce_gpu_b_fs_yx_fsv16" },
     reduce_test_params{ CASE_REDUCE_F16_0, 2, 5, reduce_mode::max, { 2, 0 }, true, "reduce_gpu_b_fs_yx_fsv16" },
     reduce_test_params{ CASE_REDUCE_F16_4, 2, 5, reduce_mode::sum, { 3, 0 }, true, "reduce_gpu_b_fs_yx_fsv16" },
@@ -232,6 +226,27 @@ INSTANTIATE_TEST_SUITE_P(fusings_gpu, reduce_eltwise_activation_quantize, ::test
     reduce_test_params{ CASE_REDUCE_U8_4, 2, 5, reduce_mode::mean, { 3 }, true, "reduce_gpu_b_fs_yx_fsv16" }
 }));
 
+TEST_P(reduce_eltwise_activation_quantize, per_channel) {
+    auto p = GetParam();
+    update_out_shape(p);
+    create_topologies(
+        input_layout("input", get_input_layout(p)),
+        data("in_lo", get_mem(get_per_channel_layout(p), min_random, 0)),
+        data("in_hi", get_mem(get_per_channel_layout(p), 1, max_random)),
+        data("out_lo", get_mem(get_single_element_layout(p), -128)),
+        data("out_hi", get_mem(get_single_element_layout(p), 127)),
+        data("eltwise_data", get_mem(get_output_layout(p))),
+        reduce("reduce", input_info("input"), p.reduce_mode, p.reduce_axes, p.keep_dims),
+        eltwise("eltwise", { input_info("reduce"), input_info("eltwise_data") }, eltwise_mode::sum, p.default_type),
+        activation("activation", input_info("eltwise"), activation_func::relu),
+        quantize("quantize", input_info("activation"), input_info("in_lo"), input_info("in_hi"), input_info("out_lo"), input_info("out_hi"), 256, data_types::i8),
+        reorder("output_reorder", input_info("quantize"), p.default_format, data_types::f32)
+    );
+
+    tolerance_abs = 1.f;
+    execute(p);
+}
+
 class reduce_scale_activation : public ReduceFusingTest {};
 TEST_P(reduce_scale_activation, basic) {
     auto p = GetParam();
@@ -247,7 +262,7 @@ TEST_P(reduce_scale_activation, basic) {
     if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives++;
 
-    tolerance = 1e-02f;
+    tolerance_abs = 1e-02f;
     execute(p);
 }
 
@@ -265,7 +280,7 @@ TEST_P(reduce_scale_activation, per_channel) {
     if (engine.get_device_info().supports_immad)
         p.expected_fused_primitives++;
 
-    tolerance = 1e-02f;
+    tolerance_abs = 1e-02f;
     execute(p);
 }
 

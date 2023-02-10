@@ -161,7 +161,7 @@ TEST_P(fc_fp32_activation, basic) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_fp32_activation, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
@@ -187,7 +187,7 @@ TEST_P(fc_fp32_activation_dynamic, basic) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p, true);
 }
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_fp32_activation_dynamic, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
@@ -211,7 +211,7 @@ TEST_P(fc_fp32_bias, basic) {
         reorder("reorder_bfyx", input_info("bias_add"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -238,7 +238,7 @@ TEST_P(fc_fp32_bias_dynamic, basic) {
         reorder("reorder_bfyx", input_info("bias_add"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p, true);
 }
 
@@ -268,7 +268,7 @@ TEST_P(fc_int8_quantize_u8, basic) {
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -300,7 +300,7 @@ TEST_P(fc_int8_eltwise_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -333,7 +333,7 @@ TEST_P(fc_int8_eltwise_activation_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -370,7 +370,7 @@ TEST_P(fc_int8_inputs_fused_fp32_sum, basic) {
         reorder("reorder_bfyx", input_info("crop"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 

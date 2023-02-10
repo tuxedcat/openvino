@@ -486,6 +486,7 @@ void program::set_options() {
     if (!_config.get_property(ov::intel_gpu::force_implementations).empty()) {
         _config.set_property(ov::intel_gpu::optimize_data(true));
     }
+    _config.apply_user_properties(_engine.get_device_info());
 }
 
 bool program::is_local_block_io_supported() const {

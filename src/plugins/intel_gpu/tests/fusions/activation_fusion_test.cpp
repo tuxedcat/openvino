@@ -113,7 +113,7 @@ TEST_P(activation_quantize_i8, basic) {
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -131,7 +131,7 @@ TEST_P(activation_quantize_i8, per_channel) {
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1.0f;
+    tolerance_abs = 1.0f;
     execute(p);
 }
 
@@ -177,11 +177,8 @@ TEST_P(activation_eltwise_activation_quantize_u8, basic) {
                  input_info("out_low"), input_info("out_high"), 256, data_types::u8),
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
-    // Activation won't be fused because onednn doesn't support softsign activation
-    if (engine.get_device_info().supports_immad)
-        p.expected_fused_primitives++;
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -201,11 +198,8 @@ TEST_P(activation_eltwise_activation_quantize_u8, per_channel) {
                  input_info("out_low"), input_info("out_high"), 256, data_types::u8),
         reorder("reorder_bfyx", input_info("quant"), p.default_format, data_types::f32)
     );
-    // Activation won't be fused because onednn doesn't support softsign activation
-    if (engine.get_device_info().supports_immad)
-        p.expected_fused_primitives++;
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -245,7 +239,7 @@ TEST_P(activation_eltwise_activation, basic) {
         reorder("reorder_bfyx", input_info("act2"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-05f;
+    tolerance_abs = 1e-05f;
     execute(p);
 }
 

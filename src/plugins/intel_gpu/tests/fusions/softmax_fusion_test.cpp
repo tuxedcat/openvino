@@ -85,7 +85,7 @@ TEST_P(softmax_quantize, basic) {
         reorder("reorder_bfyx", input_info("quantize"), get_output_layout(p))
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p);
 }
 
@@ -113,7 +113,7 @@ TEST_P(softmax_quantize_fusing_through, reshape) {
         reorder("reorder_bfyx", input_info("quantize"), get_output_layout(p))
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p, {{"softmax", {"quantize"}}});
 }
 
@@ -132,7 +132,7 @@ TEST_P(softmax_quantize_fusing_through, reorder) {
         reorder("reorder_bfyx", input_info("quantize"), get_output_layout(p))
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p, {{"softmax", {"quantize"}}});
 }
 
@@ -153,7 +153,7 @@ TEST_P(softmax_quantize_fusing_through, chain) {
         reorder("reorder_bfyx", input_info("quantize"), get_output_layout(p))
     );
 
-    tolerance = 1.f;
+    tolerance_abs = 1.f;
     execute(p, {{"softmax", {"quantize"}}});
 }
 

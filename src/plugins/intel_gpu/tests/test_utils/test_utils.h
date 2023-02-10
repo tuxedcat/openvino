@@ -185,7 +185,7 @@ inline VF<T> flatten_6d(cldnn::format input_format, VVVVVVF<T> &data) {
 
 template<typename T>
 std::vector<T> generate_random_1d(size_t a, int min, int max, int k = 8) {
-    static std::default_random_engine generator(random_seed);
+    static std::mt19937_64 generator(random_seed);
     // 1/k is the resolution of the floating point numbers
     std::uniform_int_distribution<int> distribution(k * min, k * max);
     std::vector<T> v(a);
@@ -272,22 +272,78 @@ VVVVVVF<T> generate_random_6d(size_t a, size_t b, size_t c, size_t d, size_t e, 
 template <class T> void set_value(T* ptr, uint32_t index, T value) { ptr[index] = value; }
 template <class T> T    get_value(T* ptr, uint32_t index) { return ptr[index]; }
 
-template<typename T>
-void set_values(cldnn::memory::ptr mem, std::initializer_list<T> args) {
+enum class FillType{
+    All,
+    OnlyInsideShape,
+};
+template <typename T>
+void set_values(cldnn::memory::ptr mem, std::initializer_list<T> args, FillType ft = FillType::All) {
     cldnn::mem_lock<T> ptr(mem, get_test_stream());
-
-    auto it = ptr.begin();
-    for(auto x : args)
-        *it++ = x;
+    auto lay = mem->get_layout();
+    if (ft == FillType::All) {
+        if(args.size() > ptr.size())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < ptr.size())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it_ptr = ptr.begin();
+        auto it_args = args.begin();
+        while (it_ptr != ptr.end() && it_args != args.end())
+            *it_ptr++ = *it_args++;
+    } else {
+        auto it = args.begin();
+        try {
+            for(int bi = 0; bi < lay.batch(); bi++)
+            for(int fi = 0; fi < lay.feature(); fi++)
+            for(int wi = 0; wi < lay.spatial(3); wi++)
+            for(int zi = 0; zi < lay.spatial(2); zi++)
+            for(int yi = 0; yi < lay.spatial(1); yi++)
+            for(int xi = 0; xi < lay.spatial(0); xi++){
+                int idx = lay.get_linear_offset(tensor(batch(bi), feature(fi), spatial(xi, yi, zi, wi)));
+                ptr[idx] = *it++;
+                if (it == args.end())
+                    return;
+            }
+        } catch (const std::invalid_argument& e) {
+            GPU_DEBUG_LOG << "Error occured during set_values().";
+        }
+    }
 }
 
 template<typename T>
-void set_values(cldnn::memory::ptr mem, std::vector<T> args) {
+void set_values(cldnn::memory::ptr mem, std::vector<T> args, FillType ft = FillType::All) {
     cldnn::mem_lock<T> ptr(mem, get_test_stream());
-
-    auto it = ptr.begin();
-    for (auto x : args)
-        *it++ = x;
+    auto lay = mem->get_layout();
+    if (ft == FillType::All) {
+        if(args.size() > ptr.size())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < ptr.size())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it_ptr = ptr.begin();
+        auto it_args = args.begin();
+        while (it_ptr != ptr.end() && it_args != args.end())
+            *it_ptr++ = *it_args++;
+    } else {
+        if(args.size() > lay.count())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < lay.count())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it = args.begin();
+        try {
+            for(int bi = 0; bi < lay.batch(); bi++)
+            for(int fi = 0; fi < lay.feature(); fi++)
+            for(int wi = 0; wi < lay.spatial(3); wi++)
+            for(int zi = 0; zi < lay.spatial(2); zi++)
+            for(int yi = 0; yi < lay.spatial(1); yi++)
+            for(int xi = 0; xi < lay.spatial(0); xi++){
+                int idx = lay.get_linear_offset(tensor(batch(bi), feature(fi), spatial(xi, yi, zi, wi)));
+                ptr[idx] = *it++;
+                if (it == args.end())
+                    return;
+            }
+        } catch (const std::invalid_argument& e) {
+            GPU_DEBUG_LOG << "Error occured during set_values().";
+        }
+    }
 }
 
 template<typename T>
@@ -589,6 +645,29 @@ std::vector<float> get_output_values_to_float(network& net, const primitive_id& 
     return ret;
 }
 double default_tolerance(data_types dt);
+template <class T>
+inline void print_primitive(network& net, const std::string& prim_id, bool format_xy=false, size_t max_cnt = 300) {
+    std::cout << "========== "
+              << prim_id << '.'
+              << dt_to_str(type_to_data_type<T>::value) << '.'
+              << net.get_executed_primitives().size()
+              << " ==========" << std::endl;
+    try {
+        auto a = net.get_output_values_to_float<T>(prim_id, max_cnt);
+        auto b = net.get_output_layout(prim_id);
+        for (size_t i = 0; i < a.size(); i++) {
+            std::cout << std::setw(7) << std::to_string(a[i]).substr(0, 6) << ' ';
+            if (format_xy && (i + 1) % b.spatial(0) == 0)
+                std::cout << std::endl;
+            if (format_xy && (i + 1) % (b.spatial(0) * b.spatial(1)) == 0)
+                std::cout << std::endl;
+        }
+        std::cout << (a.size() == max_cnt ? " ...\n" : "\n");
+    } catch (const std::exception& e) {
+        std::cout << "Failed to print " << prim_id << " with the exception below." << std::endl;
+        std::cout << "Exception: " << e.what() << std::endl;
+    }
+}
 class membuf : public std::streambuf
 {
 public:

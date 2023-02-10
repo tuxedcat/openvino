@@ -129,6 +129,29 @@ public:
         return network_output(evt, get_output_memory(output_id), get_stream_ptr());
     }
     layout get_node_output_layout(const primitive_id& output_id) const;
+
+    template <class T>
+    std::vector<float> get_output_values_to_float(const primitive_id& output_id, size_t max_cnt = std::numeric_limits<size_t>::max()) {
+        std::vector<float> ret;
+        auto ptr = get_output_memory(output_id);
+        auto out_ids = get_output_ids();
+        if (find(out_ids.begin(), out_ids.end(), output_id) == out_ids.end() && get_config().get_property(ov::intel_gpu::enable_memory_pool))
+            IE_THROW() << "Non output node's memory may have been reused. "
+                          "Make target node to output by using ov::intel_gpu::custom_outputs in ExecutionConfig.";
+        mem_lock<T, mem_lock_type::read> mem(ptr, get_stream());
+        if (ptr->get_layout().data_type != type_to_data_type<T>::value)
+            IE_THROW() << "target type " << data_type_traits::name(type_to_data_type<T>::value)
+                       << " mismatched with actual type " << data_type_traits::name(ptr->get_layout().data_type);
+        if (!format::is_simple_data_format(ptr->get_layout().format)) {
+            // TODO: Warning Message
+            for (size_t i = 0; i < std::min(max_cnt, mem.size()); i++)
+                ret.push_back(mem[i]);
+        } else {
+            for (size_t i = 0; i < std::min(max_cnt, ptr->get_layout().count()); i++)
+                ret.push_back(mem[i]);
+        }
+        return ret;
+    }
     memory::ptr get_output_memory(const primitive_id& output_id);
     layout get_output_layout(const primitive_id& output_id) const;
     std::vector<layout> get_input_layouts() const;

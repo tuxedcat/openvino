@@ -9063,20 +9063,20 @@ TEST_P(convolution_gpu_onednn, conv_onednn_cases) {
         topology.add(conv_fsv);
     }
     topology.add(reorder("reorder_bfyx", input_info("conv_fsv"), format::bfyx, data_types::f32));
+
     ExecutionConfig config;
     config.set_property(ov::intel_gpu::optimize_data(true));
     config.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
     config.set_property(ov::intel_gpu::custom_outputs(std::vector<std::string>{"conv_fsv","reorder_bfyx"}));
     network network(engine, topology, config);
-
     network.set_input_data("input", input_mem);
     network.execute();
 
     for (auto& p : network.get_primitives_info())
         std::cerr << p.original_id << " " << p.kernel_id << std::endl;
 
-    auto out_ptr = get_output_values_to_float<FLOAT16>(network, "conv_fsv");
-    auto out_lay = network.get_node_output_layout("conv_fsv");
+    auto out_ptr = network.get_output_values_to_float<FLOAT16>("conv_fsv");
+    auto out_lay = network.get_output_layout("conv_fsv");
     ASSERT_EQ(out_lay.batch(), expected_result.size());
     ASSERT_EQ(out_lay.feature(), expected_result[0].size());
     ASSERT_EQ(out_lay.spatial(1), expected_result[0][0].size());

@@ -25,20 +25,33 @@ public:
     ExecutionConfig cfg_fused;
     ExecutionConfig cfg_not_fused;
 
-    float tolerance = 0.0f;
+    float tolerance_abs = 0.0f;
+    float tolerance_rel = 0.01f;
 
     static const int min_random = -200;
     static const int max_random = 200;
-
+    BaseFusingTest() : cfg_fused(ov::device::id("1")), cfg_not_fused(ov::device::id("1")) {}
     void SetUp() override {
+        // cfg_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+        // cfg_not_fused.set_property(ov::intel_gpu::enable_memory_pool(false));
+
         cfg_fused.set_property(ov::intel_gpu::optimize_data(true));
         cfg_not_fused.set_property(ov::intel_gpu::optimize_data(false));
         cfg_not_fused.set_property(ov::intel_gpu::allow_static_input_reorder(true));
+
+        if (engine.get_device_info().supports_immad) {
+            cfg_fused.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
+            cfg_not_fused.set_property(ov::intel_gpu::queue_type(QueueTypes::in_order));
+            engine.create_onednn_engine(cfg_fused);
+        }
     }
 
-    void compare(network& not_fused, network& fused, T& p, bool count_reorder = false) {
-        auto outputs_ref = not_fused.execute();
-        auto outputs_fused = fused.execute();
+    void compare(network& net_ref, network& net_opt, T& p, bool count_reorder = false) {
+        auto outnodes_ref = net_ref.execute();
+        auto outnodes_opt = net_opt.execute();
+        auto out_id_ref = outnodes_ref.begin()->first;
+        auto out_id_opt = outnodes_opt.begin()->first;
+
         auto get_reorders_count = [](network& net) -> size_t {
             size_t count = 0;
             for (auto& pi : net.get_primitives_info()) {
@@ -55,39 +68,86 @@ public:
             return count;
         };
 
-        size_t reorders_count_fused = get_reorders_count(fused);
-        size_t reorders_count_not_fused = get_reorders_count(not_fused);
+        size_t reorders_count_ref = get_reorders_count(net_ref);
+        size_t reorders_count_opt = get_reorders_count(net_opt);
 
         std::stringstream description;
-        description << std::endl << "not fused: " << std::endl;
-        for (auto i : not_fused.get_primitives_info()) {
+        description << std::endl << "net_ref: " << std::endl;
+        for (auto i : net_ref.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        description << "fused: " << std::endl;
-        for (auto i : fused.get_primitives_info()) {
+        description << "net_opt: " << std::endl;
+        for (auto i : net_opt.get_primitives_info()) {
             description << "  " << i.original_id << " " << i.kernel_id << std::endl;
         }
-        SCOPED_TRACE(description.str());
-        // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
-        ASSERT_EQ(fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_fused), p.expected_fused_primitives);
-        ASSERT_EQ(not_fused.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_not_fused), p.expected_not_fused_primitives);
-        ASSERT_EQ(outputs_ref.size(), outputs_fused.size());
-        ASSERT_EQ(outputs_ref.size(), size_t(1));
 
-        auto output_not_fused_prim = outputs_ref.begin()->second.get_memory();
-        auto output_fused_prim = outputs_fused.begin()->second.get_memory();
-        if (output_not_fused_prim->get_layout().data_type == data_types::f32) {
-            cldnn::mem_lock<float> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<float> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(ref[i], output_ptr[i], tolerance) << "i = " << i;
-            }
+        std::cout << description.str() << std::endl;
+        print_primitive<FLOAT16>(net_ref,"input",true);
+        print_primitive<FLOAT16>(net_ref,"weights_generic_layer_0",true,32);
+        print_primitive<FLOAT16>(net_opt,"weights_generic_layer_0",true,32);
+        // print_primitive<FLOAT16>(net_ref,"reduce",true);
+        // print_primitive<FLOAT16>(net_opt,"reduce",true);
+        print_primitive<float>(net_ref,out_id_ref,true);
+        print_primitive<float>(net_opt,out_id_opt,true);
+
+        std::vector<float> val_ref;
+        std::vector<float> val_opt;
+        auto lay_ref=net_ref.get_output_layout(out_id_ref);
+        auto lay_opt=net_ref.get_output_layout(out_id_opt);
+        if (lay_ref.data_type == data_types::f32) {
+            val_ref = net_ref.get_output_values_to_float<float>(out_id_ref);
         } else {
-            cldnn::mem_lock<int16_t> ref(output_not_fused_prim, get_test_stream());
-            cldnn::mem_lock<int16_t> output_ptr(output_fused_prim, get_test_stream());
-            for (size_t i = 0; i < output_fused_prim->get_layout().count(); i++) {
-                ASSERT_NEAR(half_to_float(ref[i]), half_to_float(output_ptr[i]), tolerance) << "i = " << i;
+            val_ref = net_ref.get_output_values_to_float<FLOAT16>(out_id_ref);
+        }
+        if (lay_opt.data_type == data_types::f32) {
+            val_opt = net_opt.get_output_values_to_float<float>(out_id_opt);
+        } else {
+            val_opt = net_opt.get_output_values_to_float<FLOAT16>(out_id_opt);
+        }
+
+        ASSERT_EQ(val_ref.size(), val_opt.size());
+        // ASSERT_TRUE(format::is_simple_data_format(lay_ref.format));
+        // ASSERT_TRUE(format::is_simple_data_format(lay_opt.format));
+        ASSERT_TRUE(lay_ref.format == lay_opt.format);
+        ASSERT_TRUE(lay_ref.count() == lay_opt.count());
+        // NOTE:
+        // val_ref.size()==memory size
+        // lay_ref.count()==shape size
+        // val_ref.size()>=lay_ref.count()
+        // This loop is valid only when lay_ref is planar(simple) format
+        for (size_t i = 0; i < lay_ref.count(); i++) {
+            float err = abs(val_opt[i] - val_ref[i]);
+            ASSERT_TRUE(err <= std::max(tolerance_abs, tolerance_rel * abs(val_ref[i])) + 1e-8)
+                << "i = " << i << "\ntolerance = " << std::max(tolerance_abs, tolerance_rel * abs(val_ref[i]))
+                << "\ndiff = " << err << "\nref[i] = " << val_ref[i] << "\nopt[i] = " << val_opt[i];
+        }
+        // Subtract reorders count to handle execution in different layouts when input/output reorders can be added in the graph
+        ASSERT_EQ(net_opt.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_opt), p.expected_fused_primitives);
+        ASSERT_EQ(net_ref.get_executed_primitives().size() - (count_reorder ? 0 : reorders_count_ref), p.expected_not_fused_primitives);
+        ASSERT_TRUE(outnodes_ref.size() == 1);
+        ASSERT_TRUE(outnodes_opt.size() == 1);
+
+        GPU_DEBUG_GET_INSTANCE(debug_config);
+        GPU_DEBUG_IF(debug_config->verbose >= 2) {
+            float E_X = 0;
+            float E_SQX = 0;
+            float abs_diff_sum = 0;
+            float max_abs_X = 0;
+            for (size_t i = 0; i < val_ref.size(); i++) {
+                E_X += val_ref[i];
+                E_SQX += val_ref[i] * val_ref[i];
+                abs_diff_sum += std::abs(val_ref[i] - val_opt[i]);
+                max_abs_X = std::max(max_abs_X, val_ref[i]);
             }
+            E_X /= val_ref.size();
+            E_SQX /= val_ref.size();
+            float SD = std::sqrt((E_SQX - E_X * E_X));
+            if (SD < tolerance_abs * val_ref.size())
+                GPU_DEBUG_INFO << "WARNING: output variance is too low" << std::endl;
+            if (abs_diff_sum / val_ref.size() > tolerance_abs * val_ref.size())
+                GPU_DEBUG_INFO << "WARNING: output average difference is too high" << std::endl;
+            if (max_abs_X >= 1e6)
+                GPU_DEBUG_INFO << "WARNING: output absolute value is too high" << std::endl;
         }
     }
 
@@ -109,92 +169,74 @@ public:
         }
     }
 
-    cldnn::memory::ptr get_mem(cldnn::layout l) {
+    cldnn::memory::ptr get_mem(cldnn::layout l, FillType ft = FillType::OnlyInsideShape) {
         auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
+        int cnt_base = ft == FillType::All ? prim->size() / data_type_traits::size_of(l.data_type) : l.count();
         if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec = generate_random_1d<int32_t>(s.count() / 32, min_random, max_random);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_1d<int32_t>(cnt_base / 32, min_random, max_random), ft);
         } else if (l.data_type == data_types::i8 || l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(s.count(), min_random, max_random);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_1d<uint8_t>(cnt_base, min_random, max_random), ft);
         } else if (l.data_type == data_types::f16) {
-            VF<uint16_t> rnd_vec = generate_random_1d<uint16_t>(s.count(), -1, 1);
-            set_values(prim, rnd_vec);
-        } else {
-            VF<float> rnd_vec = generate_random_1d<float>(s.count(), -1, 1);
-            set_values(prim, rnd_vec);
-        }
-
-        return prim;
-    }
-
-    cldnn::memory::ptr get_mem(cldnn::layout l, float fill_value) {
-        auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
-        if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec(s.count() / 32, static_cast<int32_t>(fill_value));
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::f16) {
-            VF<uint16_t> rnd_vec(s.count(), float_to_half(fill_value));
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_1d<FLOAT16>(cnt_base, -1, 1), ft);
         } else if (l.data_type == data_types::f32) {
-            VF<float> rnd_vec(s.count(), fill_value);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec(s.count(), static_cast<uint8_t>(fill_value));
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::i8) {
-            VF<int8_t> rnd_vec(s.count(), static_cast<int8_t>(fill_value));
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_1d<float>(cnt_base, -1, 1), ft);
         } else {
-            throw std::runtime_error("get_mem: Unsupported precision");
+            IE_THROW() << "Unimplemented data_types";
         }
-
         return prim;
     }
 
-    cldnn::memory::ptr get_repeatless_mem(cldnn::layout l, int min, int max) {
+    cldnn::memory::ptr get_mem(cldnn::layout l, float fill_value, FillType ft = FillType::OnlyInsideShape) {
         auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
-        if (l.data_type == data_types::f32) {
-            VF<float> rnd_vec = generate_random_norepetitions_1d<float>(s.count(), min, max);
-            set_values(prim, rnd_vec);
+        int cnt_base = ft == FillType::All ? prim->size() / data_type_traits::size_of(l.data_type) : l.count();
+        if (l.data_type == data_types::bin) {
+            set_values(prim, VF<int32_t>(cnt_base / 32, fill_value), ft);
+        } else if (l.data_type == data_types::i8 || l.data_type == data_types::u8) {
+            set_values(prim, VF<uint8_t>(cnt_base, fill_value), ft);
         } else if (l.data_type == data_types::f16) {
-            VF<FLOAT16> rnd_vec = generate_random_norepetitions_1d<FLOAT16>(s.count(), min, max);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::i8) {
-            VF<int8_t> rnd_vec = generate_random_norepetitions_1d<int8_t>(s.count(), min, max);
-            set_values(prim, rnd_vec);
+            set_values(prim, VF<FLOAT16>(cnt_base, fill_value), ft);
+        } else if (l.data_type == data_types::f32) {
+            set_values(prim, VF<float>(cnt_base, fill_value), ft);
+        } else {
+            IE_THROW() << "Unimplemented data_types";
         }
-        else if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec = generate_random_norepetitions_1d<int32_t>(s.count(), min, max);
-            set_values(prim, rnd_vec);
-        }
-
         return prim;
     }
 
-    cldnn::memory::ptr get_mem(cldnn::layout l, int min, int max) {
+    cldnn::memory::ptr get_repeatless_mem(cldnn::layout l, int min, int max, FillType ft = FillType::OnlyInsideShape) {
         auto prim = engine.allocate_memory(l);
-        tensor s = l.get_tensor();
+        int cnt_base = ft == FillType::All ? prim->size() / data_type_traits::size_of(l.data_type) : l.count();
         if (l.data_type == data_types::f32) {
-            VF<float> rnd_vec = generate_random_1d<float>(s.count(), min, max);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_norepetitions_1d<float>(cnt_base, min, max), ft);
         } else if (l.data_type == data_types::f16) {
-            VF<FLOAT16> rnd_vec = generate_random_1d<FLOAT16>(s.count(), min, max);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_norepetitions_1d<FLOAT16>(cnt_base, min, max), ft);
         } else if (l.data_type == data_types::i8) {
-            VF<int8_t> rnd_vec = generate_random_1d<int8_t>(s.count(), min, max);
-            set_values(prim, rnd_vec);
-        } else if (l.data_type == data_types::u8) {
-            VF<uint8_t> rnd_vec = generate_random_1d<uint8_t>(s.count(), min, max);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_norepetitions_1d<int8_t>(cnt_base, min, max), ft);
         } else if (l.data_type == data_types::bin) {
-            VF<int32_t> rnd_vec = generate_random_1d<int32_t>(s.count() / 32, min, max);
-            set_values(prim, rnd_vec);
+            set_values(prim, generate_random_norepetitions_1d<int32_t>(cnt_base / 32, min, max), ft);
+        } else {
+            IE_THROW() << "Unimplemented data_types";
         }
 
+        return prim;
+    }
+
+    cldnn::memory::ptr get_mem(cldnn::layout l, int min, int max, FillType ft = FillType::OnlyInsideShape) {
+        auto prim = engine.allocate_memory(l);
+        int cnt_base = ft == FillType::All ? prim->size() / data_type_traits::size_of(l.data_type) : l.count();
+        if (l.data_type == data_types::f32) {
+            set_values(prim, generate_random_1d<float>(cnt_base, min, max), ft);
+        } else if (l.data_type == data_types::f16) {
+            set_values(prim, generate_random_1d<FLOAT16>(cnt_base, min, max), ft);
+        } else if (l.data_type == data_types::i8) {
+            set_values(prim, generate_random_1d<int8_t>(cnt_base, min, max), ft);
+        } else if (l.data_type == data_types::u8) {
+            set_values(prim, generate_random_1d<uint8_t>(cnt_base, min, max), ft);
+        } else if (l.data_type == data_types::bin) {
+            set_values(prim, generate_random_1d<int32_t>(cnt_base / 32, min, max), ft);
+        } else {
+            IE_THROW() << "Unimplemented data_types";
+        }
         return prim;
     }
 

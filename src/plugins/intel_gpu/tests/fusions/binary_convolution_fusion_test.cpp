@@ -90,7 +90,7 @@ TEST_P(conv_bin_activation, basic) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -111,7 +111,7 @@ TEST_P(conv_bin_scale_activation, basic) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -137,7 +137,7 @@ TEST_P(conv_bin_quantize_bin, channel_wise_quantize) {
         reorder("reorder_bfyx", input_info("quantize_data"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -157,7 +157,7 @@ TEST_P(conv_bin_quantize_bin, blob_wise_quantize) {
         reorder("reorder_bfyx", input_info("quantize_data"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -186,7 +186,7 @@ TEST_P(conv_bin_scale_conv_dw, dw_kernel_3x3_stride2) {
         reorder("reorder_bfyx", input_info("conv_dw"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -209,7 +209,7 @@ TEST_P(conv_bin_scale_conv_dw, dw_kernel_3x3_stride1) {
         reorder("reorder_bfyx", input_info("conv_dw"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -241,7 +241,7 @@ TEST_P(conv_bin_scale_conv_dw_prelu, dw_kernel_3x3_stride2) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 
@@ -267,7 +267,7 @@ TEST_P(conv_bin_scale_conv_dw_prelu, dw_kernel_3x3_stride1) {
         reorder("reorder_bfyx", input_info("activation"), p.default_format, data_types::f32)
     );
 
-    tolerance = 1e-5f;
+    tolerance_abs = 1e-5f;
     execute(p);
 }
 

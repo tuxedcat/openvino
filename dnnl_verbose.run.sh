@@ -1,0 +1,1 @@
+benchdnn --verbose=5 --mode=po --max-ms-per-prb=2e3 --reduction --reset --allow-enum-tags-only=0 --engine=gpu:0  --alg=reduction_sum --p=0 --eps=0  --sdt=f16 --ddt=f16  --stag=aBcd16b --dtag=aBcd16b   1x15x2x2:1x1x2x2
