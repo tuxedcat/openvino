@@ -25,6 +25,7 @@
 #include <intel_gpu/primitives/pooling.hpp>
 #include <intel_gpu/primitives/input_layout.hpp>
 #include <intel_gpu/primitives/data.hpp>
+#include "intel_gpu/graph/serialization/utils.hpp"
 
 #include <gtest/gtest.h>
 #include <gmock/gmock.h>
@@ -272,22 +273,78 @@ VVVVVVF<T> generate_random_6d(size_t a, size_t b, size_t c, size_t d, size_t e, 
 template <class T> void set_value(T* ptr, uint32_t index, T value) { ptr[index] = value; }
 template <class T> T    get_value(T* ptr, uint32_t index) { return ptr[index]; }
 
-template<typename T>
-void set_values(cldnn::memory::ptr mem, std::initializer_list<T> args) {
+enum class FillType{
+    All,
+    OnlyInsideShape,
+};
+template <typename T>
+void set_values(cldnn::memory::ptr mem, std::initializer_list<T> args, FillType ft = FillType::All) {
     cldnn::mem_lock<T> ptr(mem, get_test_stream());
-
-    auto it = ptr.begin();
-    for(auto x : args)
-        *it++ = x;
+    auto lay = mem->get_layout();
+    if (ft == FillType::All) {
+        if(args.size() > ptr.size())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < ptr.size())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it_ptr = ptr.begin();
+        auto it_args = args.begin();
+        while (it_ptr != ptr.end() && it_args != args.end())
+            *it_ptr++ = *it_args++;
+    } else {
+        auto it = args.begin();
+        try {
+            for(int bi = 0; bi < lay.batch(); bi++)
+            for(int fi = 0; fi < lay.feature(); fi++)
+            for(int wi = 0; wi < lay.spatial(3); wi++)
+            for(int zi = 0; zi < lay.spatial(2); zi++)
+            for(int yi = 0; yi < lay.spatial(1); yi++)
+            for(int xi = 0; xi < lay.spatial(0); xi++){
+                int idx = lay.get_linear_offset(tensor(batch(bi), feature(fi), spatial(xi, yi, zi, wi)));
+                ptr[idx] = *it++;
+                if (it == args.end())
+                    return;
+            }
+        } catch (const std::invalid_argument& e) {
+            GPU_DEBUG_LOG << "Error occured during set_values().";
+        }
+    }
 }
 
 template<typename T>
-void set_values(cldnn::memory::ptr mem, std::vector<T> args) {
+void set_values(cldnn::memory::ptr mem, std::vector<T> args, FillType ft = FillType::All) {
     cldnn::mem_lock<T> ptr(mem, get_test_stream());
-
-    auto it = ptr.begin();
-    for (auto x : args)
-        *it++ = x;
+    auto lay = mem->get_layout();
+    if (ft == FillType::All) {
+        if(args.size() > ptr.size())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < ptr.size())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it_ptr = ptr.begin();
+        auto it_args = args.begin();
+        while (it_ptr != ptr.end() && it_args != args.end())
+            *it_ptr++ = *it_args++;
+    } else {
+        if(args.size() > lay.count())
+            GPU_DEBUG_LOG << "Too many values.";
+        if(args.size() < lay.count())
+            GPU_DEBUG_LOG << "Too few values.";
+        auto it = args.begin();
+        try {
+            for(int bi = 0; bi < lay.batch(); bi++)
+            for(int fi = 0; fi < lay.feature(); fi++)
+            for(int wi = 0; wi < lay.spatial(3); wi++)
+            for(int zi = 0; zi < lay.spatial(2); zi++)
+            for(int yi = 0; yi < lay.spatial(1); yi++)
+            for(int xi = 0; xi < lay.spatial(0); xi++){
+                int idx = lay.get_linear_offset(tensor(batch(bi), feature(fi), spatial(xi, yi, zi, wi)));
+                ptr[idx] = *it++;
+                if (it == args.end())
+                    return;
+            }
+        } catch (const std::invalid_argument& e) {
+            GPU_DEBUG_LOG << "Error occured during set_values().";
+        }
+    }
 }
 
 template<typename T>
@@ -589,25 +646,6 @@ std::vector<float> get_output_values_to_float(network& net, const primitive_id& 
     return ret;
 }
 double default_tolerance(data_types dt);
-class membuf : public std::streambuf
-{
-public:
-    membuf() : _pos(0) { }
-
-protected:
-    virtual int_type overflow (int_type c) {
-        _buf.emplace_back(c);
-        return c;
-    }
-
-    virtual int_type uflow() {
-        return (_pos < _buf.size()) ? _buf[_pos++] : EOF;
-    }
-
-private:
-    std::vector<int_type> _buf;
-    size_t _pos;
-};
 // inline void print_bin_blob(cldnn::memory& mem, std::string name)
 // {
 //     auto&& size = mem.get_layout().get_tensor();
