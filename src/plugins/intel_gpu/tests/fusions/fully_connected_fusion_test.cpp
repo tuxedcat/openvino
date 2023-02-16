@@ -11,6 +11,7 @@
 #include <intel_gpu/primitives/fully_connected.hpp>
 #include <intel_gpu/primitives/data.hpp>
 #include <intel_gpu/primitives/crop.hpp>
+#include <intel_gpu/primitives/border.hpp>
 
 #include <cmath>
 
@@ -263,7 +264,8 @@ TEST_P(fc_int8_quantize_u8, basic) {
         data("out_lo", get_mem(get_single_element_layout(p), 0)),
         data("out_hi", get_mem(get_single_element_layout(p), 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
-        quantize("quantize", input_info("fc_prim"), input_info("in_lo"), input_info("in_hi"),
+        border("border", input_info("fc_prim")),
+        quantize("quantize", input_info("border"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 256, data_types::u8),
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
     );
@@ -273,12 +275,12 @@ TEST_P(fc_int8_quantize_u8, basic) {
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu_fc, fc_int8_quantize_u8, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
-    fully_connected_test_params{ CASE_FC_U8S8_1, 2, 3 },
-    fully_connected_test_params{ CASE_FC_U8S8_2, 2, 3 },
-    fully_connected_test_params{ CASE_FC_U8S8_3, 2, 3 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 2, 3 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 2, 3 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 2, 3 },
+    fully_connected_test_params{ CASE_FC_U8S8_1, 4, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_2, 4, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_3, 4, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 4, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 4, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 4, 4 },
 }));
 
 class fc_int8_eltwise_quantize_i8 : public FullyConnectedFusingTest {};
@@ -294,7 +296,8 @@ TEST_P(fc_int8_eltwise_quantize_i8, basic) {
         data("out_hi", get_mem(get_single_element_layout(p), 127)),
         data("eltwise_data", get_mem(get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
-        eltwise("eltwise", { input_info("fc_prim"), input_info("eltwise_data") }, eltwise_mode::prod),
+        border("border", input_info("fc_prim")),
+        eltwise("eltwise", { input_info("border"), input_info("eltwise_data") }, eltwise_mode::prod),
         quantize("quantize", input_info("eltwise"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
         reorder("reorder_bfyx", input_info("quantize"), p.default_format, data_types::f32)
@@ -305,12 +308,12 @@ TEST_P(fc_int8_eltwise_quantize_i8, basic) {
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_int8_eltwise_quantize_i8, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
-    fully_connected_test_params{ CASE_FC_U8S8_1, 2, 4 },
-    fully_connected_test_params{ CASE_FC_U8S8_2, 2, 4 },
-    fully_connected_test_params{ CASE_FC_U8S8_3, 2, 4 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 2, 4 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 2, 4 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 2, 4 },
+    fully_connected_test_params{ CASE_FC_U8S8_1, 4, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_2, 4, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_3, 4, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 4, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 4, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 4, 5 },
 }));
 
 class fc_int8_eltwise_activation_quantize_i8 : public FullyConnectedFusingTest {};
@@ -326,7 +329,8 @@ TEST_P(fc_int8_eltwise_activation_quantize_i8, basic) {
         data("out_hi", get_mem(get_single_element_layout(p), 127)),
         data("eltwise_data", get_mem(get_per_channel_layout(p), 1.0f / get_weights_layout(p).count() / 255)),
         fully_connected("fc_prim", input_info("input"), "weights", "bias", data_types::f32, padding(), get_output_dim_size(p)),
-        eltwise("eltwise", { input_info("fc_prim"), input_info("eltwise_data") }, eltwise_mode::prod),
+        border("border", input_info("fc_prim")),
+        eltwise("eltwise", { input_info("border"), input_info("eltwise_data") }, eltwise_mode::prod),
         activation("activation_eltwise", input_info("eltwise"), activation_func::exp),
         quantize("quantize", input_info("activation_eltwise"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -338,17 +342,17 @@ TEST_P(fc_int8_eltwise_activation_quantize_i8, basic) {
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, fc_int8_eltwise_activation_quantize_i8, ::testing::ValuesIn(std::vector<fully_connected_test_params>{
-    fully_connected_test_params{ CASE_FC_U8S8_1, 2, 5 },
-    fully_connected_test_params{ CASE_FC_U8S8_2, 2, 5 },
-    fully_connected_test_params{ CASE_FC_U8S8_3, 2, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_1, 4, 6 },
+    fully_connected_test_params{ CASE_FC_U8S8_2, 4, 6 },
+    fully_connected_test_params{ CASE_FC_U8S8_3, 4, 6 },
 
-    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 2, 5 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 2, 5 },
-    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 2, 5 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_1, 4, 6 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_2, 4, 6 },
+    fully_connected_test_params{ CASE_FC_U8S8_3D_3, 4, 6 },
 
-    fully_connected_test_params{ CASE_FC_FP32_3D_1, 3, 5 },
-    fully_connected_test_params{ CASE_FC_FP32_3D_2, 3, 5 },
-    fully_connected_test_params{ CASE_FC_FP32_3D_3, 3, 5 },
+    fully_connected_test_params{ CASE_FC_FP32_3D_1, 4, 6 },
+    fully_connected_test_params{ CASE_FC_FP32_3D_2, 4, 6 },
+    fully_connected_test_params{ CASE_FC_FP32_3D_3, 4, 6 },
 }));
 
 #ifdef ENABLE_ONEDNN_FOR_GPU

@@ -10,6 +10,7 @@
 #include <intel_gpu/primitives/eltwise.hpp>
 #include <intel_gpu/primitives/gemm.hpp>
 #include <intel_gpu/primitives/data.hpp>
+#include <intel_gpu/primitives/border.hpp>
 
 #include <cmath>
 
@@ -240,7 +241,8 @@ TEST_P(gemm_2in_scale, basic) {
         input_layout("input1", get_input_layout(p, 1)),
         data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
-        eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
+        border("border", input_info("gemm_prim")),
+        eltwise("scale", { input_info("border"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
     );
 
@@ -255,7 +257,8 @@ TEST_P(gemm_2in_scale, fp16_scale_out) {
         input_layout("input1", get_input_layout(p, 1)),
         data("scale_data", get_mem(get_per_channel_layout(p), 1.0f/p.kernel.count())),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
-        eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
+        border("border", input_info("gemm_prim")),
+        eltwise("scale", { input_info("border"), input_info("scale_data") }, eltwise_mode::prod, data_types::f16),
         reorder("reorder_bfyx", input_info("scale"), p.default_format, data_types::f32)
     );
 
@@ -264,17 +267,17 @@ TEST_P(gemm_2in_scale, fp16_scale_out) {
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, gemm_2in_scale, ::testing::ValuesIn(std::vector<gemm_test_params>{
-    gemm_test_params{ CASE_GEMM_2IN_FP32_1, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP32_2, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP32_3, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP32_4, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP16_1, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP16_2, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP16_3, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_FP16_4, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_U8U8_1, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_U8U8_2, 3, 4 },
-    gemm_test_params{ CASE_GEMM_2IN_U8U8_3, 3, 4 },
+    gemm_test_params{ CASE_GEMM_2IN_FP32_1, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP32_2, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP32_3, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP32_4, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP16_1, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP16_2, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP16_3, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_FP16_4, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_U8U8_1, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_U8U8_2, 5, 5 },
+    gemm_test_params{ CASE_GEMM_2IN_U8U8_3, 5, 5 },
 }));
 
 class gemm_2in_act_scale_quantize_i8 : public GemmFusingTest {};
@@ -326,7 +329,8 @@ TEST_P(gemm_2in_act_scale_quantize_eltwise_i8, basic) {
         data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
         data("eltwise_data", get_mem(get_output_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
-        activation("activation", input_info("gemm_prim"), activation_func::exp),
+        border("border", input_info("gemm_prim")),
+        activation("activation", input_info("border"), activation_func::exp),
         eltwise("scale", { input_info("activation"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         quantize("quantize", input_info("scale"), input_info("in_lo"), input_info("in_hi"),
                  input_info("out_lo"), input_info("out_hi"), 255, data_types::i8),
@@ -339,10 +343,10 @@ TEST_P(gemm_2in_act_scale_quantize_eltwise_i8, basic) {
 }
 
 INSTANTIATE_TEST_SUITE_P(fusings_gpu, gemm_2in_act_scale_quantize_eltwise_i8, ::testing::ValuesIn(std::vector<gemm_test_params>{
-    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_FP32_1, 3, 7 },
-    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_FP16_1, 3, 7 },
-    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_U8S8_1, 3, 7 },
-    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_S8U8_1, 3, 7 },
+    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_FP32_1, 6, 8 },
+    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_FP16_1, 6, 8 },
+    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_U8S8_1, 6, 8 },
+    gemm_test_params{ CASE_GEMM_ELTWISE_2IN_S8U8_1, 6, 8 },
 }));
 
 class gemm_2in_act_scale_eltwise : public GemmFusingTest {};
@@ -354,7 +358,8 @@ TEST_P(gemm_2in_act_scale_eltwise, basic) {
         data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
         data("eltwise_data", get_mem(get_output_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
-        eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
+        border("border", input_info("gemm_prim")),
+        eltwise("scale", { input_info("border"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::negative),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum,  data_types::f32),
         reorder("reorder_bfyx", input_info("sum"), p.default_format, data_types::f32)
@@ -372,6 +377,7 @@ TEST_P(gemm_2in_act_scale_eltwise, broadcast_eltwise) {
         data("scale_data", get_mem(get_per_channel_layout(p), 1.0f / p.kernel.count() / 255)),
         data("eltwise_data", get_mem(get_single_element_layout(p))),
         gemm("gemm_prim", { input_info("input0"), input_info("input1") }, data_types::f32),
+        border("border", input_info("gemm_prim")),
         eltwise("scale", { input_info("gemm_prim"), input_info("scale_data") }, eltwise_mode::prod, p.default_type),
         activation("activation", input_info("scale"), activation_func::negative),
         eltwise("sum", { input_info("activation"), input_info("eltwise_data") }, eltwise_mode::sum,  data_types::f32),
@@ -386,12 +392,12 @@ INSTANTIATE_TEST_SUITE_P(
     fusings_gpu,
     gemm_2in_act_scale_eltwise,
     ::testing::ValuesIn(std::vector<gemm_test_params>{
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP32_1, 3, 6},
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP16_1, 3, 6},
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_U8S8_1, 3, 6},
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_S8U8_1, 3, 6},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP32_1, 5, 7},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP16_1, 5, 7},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_U8S8_1, 5, 7},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_S8U8_1, 5, 7},
         // Reference graph can be fused because force_implementation leads optimize_data(true) in program::set_options()
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_U8S8_2, 3, 3, "gemm_mmad_int8"},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_U8S8_2, 5, 5, "gemm_mmad_int8"},
         // gemm_test_params{ CASE_GEMM_ELTWISE_2IN_U8S8_2, 3, 3, "gemm_mmad_int8_slm" },   // tolerance issue
-        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP16_2, 3, 3, "gemm_tiled_opt"},
+        gemm_test_params{CASE_GEMM_ELTWISE_2IN_FP16_2, 5, 5, "gemm_tiled_opt"},
     }));
