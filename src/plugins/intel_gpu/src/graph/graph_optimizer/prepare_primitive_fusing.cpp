@@ -558,21 +558,8 @@ void prepare_primitive_fusing::fuse_simple_primitives(program &p) {
         };
 
         auto fc_supports_fusings = [&](fully_connected_node& node) -> bool {
-            if (_lo.get_optimization_attributes().use_onednn_impls && !node.is_dynamic()) {
-                auto prefix_rank = [](const std::vector<int>& a) {
-                    int x = a.size();
-                    while (x - 1 >= 0 && a[x - 1] == 1)
-                        x--;
-                    return x;
-                };
-                int rank = 0;
-                auto layouts = node.get_input_layouts();
-                layouts.emplace_back(node.get_output_layout());
-                for (const auto& l : layouts)
-                    rank = std::max(rank, prefix_rank(l.get_dims()));
-                if (rank >= 3)
-                    return false;
-            }
+            if (_lo.get_optimization_attributes().use_onednn_impls && node.get_primitive()->input_size >= 3)
+                return false;
             auto in_dt = node.get_dependency(0).get_output_layout().data_type;
             return data_type_traits::is_i8_u8(in_dt);
         };
