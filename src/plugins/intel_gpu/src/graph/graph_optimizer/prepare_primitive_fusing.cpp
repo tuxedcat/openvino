@@ -558,8 +558,8 @@ void prepare_primitive_fusing::fuse_simple_primitives(program &p) {
         };
 
         auto fc_supports_fusings = [&](fully_connected_node& node) -> bool {
-            if (_lo.get_optimization_attributes().use_onednn_impls && node.get_primitive()->input_size >= 3)
-                return false;
+            // if (_lo.get_optimization_attributes().use_onednn_impls && node.get_primitive()->input_size >= 3)
+            //     return false;
             auto in_dt = node.get_dependency(0).get_output_layout().data_type;
             return data_type_traits::is_i8_u8(in_dt);
         };
