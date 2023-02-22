@@ -41,6 +41,17 @@ protected:
             args.insert({DNNL_ARG_BIAS, weights.get_onednn_memory(_pd.weights_desc(1))});
         }
 
+        float alpha = instance.get_node().get_kernel_impl_params()->typed_desc<gemm>()->alpha;
+        float beta = instance.get_node().get_kernel_impl_params()->typed_desc<gemm>()->beta;
+        float scale_dst = alpha;
+        float scale_bias = beta / alpha;
+        auto dst_scale_md = dnnl::memory::desc({1}, dnnl::memory::data_type::f32, dnnl::memory::format_tag::x);
+        auto dst_scale_memory = dnnl::memory(dst_scale_md, _engine->get_onednn_engine(), &scale_dst);
+        auto bias_scale_md = dnnl::memory::desc({1}, dnnl::memory::data_type::f32, dnnl::memory::format_tag::x);
+        auto bias_scale_memory = dnnl::memory(bias_scale_md, _engine->get_onednn_engine(), &scale_bias);
+        args.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_DST, dst_scale_memory});
+        args.insert({DNNL_ARG_ATTR_SCALES | DNNL_ARG_BIAS, bias_scale_memory});
+
         return args;
     }
 
@@ -300,6 +311,13 @@ public:
 #endif
     }
 
+    static std::shared_ptr<dnnl::primitive_attr> get_gemm_primitive_attributes(const gemm_node& arg) {
+        auto attr = arg.get_onednn_primitive_attributes();
+        attr->set_scales_mask(DNNL_ARG_DST, 0);
+        attr->set_scales_mask(DNNL_ARG_BIAS, 0);
+        return attr;
+    }
+
     static std::unique_ptr<primitive_impl> create(const gemm_node& arg, const kernel_impl_params& impl_params) {
         bool full_tensor_or_per_tensor = true;
         for (auto prim : arg.get_fused_primitives()) {
@@ -311,7 +329,7 @@ public:
         }
         auto& engine = impl_params.prog->get_engine();
         auto& config = impl_params.prog->get_config();
-        auto attr = arg.get_onednn_primitive_attributes();
+        auto attr = get_gemm_primitive_attributes(arg);
         auto prim_desc = get_gemm_primitive_descriptor(impl_params, *attr);
 
         return cldnn::make_unique<gemm_onednn>(engine, config, attr, *prim_desc);
